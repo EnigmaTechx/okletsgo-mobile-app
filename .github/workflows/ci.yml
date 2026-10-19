@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+jobs:
+  checks:
+    name: Lint, typecheck, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx expo lint -- --max-warnings=0
+      - run: npx tsc --noEmit
+      - run: npx jest --ci
+      - run: npx expo-doctor
+        continue-on-error: true
+
+  # Development build for testers on every merge to dev. Needs an EXPO_TOKEN
+  # repository secret (Expo account → Access tokens) and `eas init` run once
+  # locally so app.json carries the EAS project id; until then this job is
+  # skipped rather than failing the pipeline.
+  eas-dev-build:
+    name: EAS development build
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev' && vars.EAS_BUILDS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: eas build --platform all --profile development --non-interactive --no-wait
