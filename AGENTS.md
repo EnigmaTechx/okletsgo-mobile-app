@@ -39,3 +39,32 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## OK Let's Go — project notes
+
+This repo is the React Native rebuild of the live Ionic app in
+`rideshare-ionic-app`. Read that repo's `CLAUDE.md` for the product, the
+Firestore schema, the Cloud Functions and the fare math: all of it is shared and
+none of it changes here. The migration roadmap and parity tracker are in the
+shared roadmap doc; per-phase notes are in `docs/`.
+
+- **Backend is fixed.** Same Firebase project, same collections, same callable
+  names. Never add a Cloud Function or rules change here without a matching
+  change in the Ionic repo's `functions/` until the Ionic app is retired.
+- **Native Firebase, modular API.** Import from `@react-native-firebase/*`
+  (`collection`, `onSnapshot`, `httpsCallable` ...), never the `firebase/*` JS
+  SDK. Instances live in `src/services/firebase.ts`.
+- **No Expo Go.** Development builds only (`eas build --profile development`).
+- **Config-doc pattern.** Admin-managed behaviour comes from Firestore
+  `config/*` documents with a live listener and a sane default: pricing,
+  features, terms, app (update gate), and promotions from phase 4.
+- **Theme.** Colours come from `useTheme().colors`, never a hex in a component.
+  Both palettes are in `src/theme/tokens.ts`; text goes through `AppText`.
+- **Lint rules that bite.** The React Compiler is on: no components declared
+  inside render, no `ref.current` reads during render (use `useState(() => …)`
+  for one-time setup), and escape apostrophes in JSX text (`&apos;`).
+- **Before committing:** `npx expo lint --max-warnings=0`, `npx tsc --noEmit`,
+  `npx jest`. Native behaviour (phone auth, push, location) can only be checked
+  on a device.
+- **Identity.** `com.enigmatech.rideshare` on both platforms; the version and
+  build numbers continue from the Ionic app (last Ionic build: 33).

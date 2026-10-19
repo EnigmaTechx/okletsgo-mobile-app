@@ -41,3 +41,10 @@ example
 # generated native folders
 /ios
 /android
+
+# Firebase native config — injected by EAS file secrets, never committed
+google-services.json
+GoogleService-Info.plist
+
+# EAS / Expo caches
+.eas/
