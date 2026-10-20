@@ -106,12 +106,18 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const registering = !!currentUser && !userProfile;
   const isClient = !!currentUser && userProfile?.role === "client";
   const isDriver = !!currentUser && userProfile?.role === "driver";
-  const isAdmin = !!currentUser && !!userProfile && canAccessAdminSection(userProfile);
+  const isAdmin =
+    !!currentUser && !!userProfile && canAccessAdminSection(userProfile);
 
   return (
     <NavigationThemeProvider value={navTheme}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
         <Stack.Screen name="index" />
         <Stack.Protected guard={signedOut || registering}>
           <Stack.Screen name="(auth)" />
@@ -121,6 +127,9 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         </Stack.Protected>
         <Stack.Protected guard={isDriver}>
           <Stack.Screen name="(driver)" />
+        </Stack.Protected>
+        <Stack.Protected guard={isClient || isDriver}>
+          <Stack.Screen name="(common)" />
         </Stack.Protected>
         <Stack.Protected guard={isAdmin}>
           <Stack.Screen name="admin" />

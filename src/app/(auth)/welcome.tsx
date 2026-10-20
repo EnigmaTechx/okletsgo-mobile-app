@@ -58,7 +58,11 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: "center", paddingTop: spacing.xxl, paddingBottom: spacing.xl },
+  hero: {
+    alignItems: "center",
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
+  },
   copy: { gap: spacing.md, paddingHorizontal: spacing.sm },
   gift: {
     marginTop: spacing.xl,

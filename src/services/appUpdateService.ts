@@ -33,7 +33,8 @@ export interface AppUpdateConfig {
 }
 
 export const DEFAULT_STORE_URL: Record<string, string> = {
-  android: "https://play.google.com/store/apps/details?id=com.enigmatech.rideshare",
+  android:
+    "https://play.google.com/store/apps/details?id=com.enigmatech.rideshare",
   ios: "https://apps.apple.com/app/id6760600607",
 };
 
@@ -88,7 +89,8 @@ export function useUpdateGate(): UpdateGateState {
     if (Platform.OS === "web") return; // dev/preview only — never gate
     const unsub = onSnapshot(
       doc(db, "config", "app"),
-      (snap) => setConfig(snap.exists() ? (snap.data() as AppUpdateConfig) : null),
+      (snap) =>
+        setConfig(snap.exists() ? (snap.data() as AppUpdateConfig) : null),
       (err) => {
         console.warn("[updateGate] config/app unavailable — not gating", err);
         setConfig(null);

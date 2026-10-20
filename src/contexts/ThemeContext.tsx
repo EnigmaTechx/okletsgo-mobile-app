@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { type ColorSchemeName, type Palette, palettes } from "../theme/tokens";
@@ -36,7 +42,9 @@ export const useTheme = () => useContext(ThemeContext);
 const isPreference = (v: unknown): v is ThemePreference =>
   v === "system" || v === "light" || v === "dark";
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const systemScheme = useColorScheme();
   const [preference, setPreferenceState] = useState<ThemePreference>("system");
   const [ready, setReady] = useState(false);
@@ -62,12 +70,24 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const scheme: ColorSchemeName =
-    preference === "system" ? (systemScheme === "light" ? "light" : "dark") : preference;
+    preference === "system"
+      ? systemScheme === "light"
+        ? "light"
+        : "dark"
+      : preference;
 
   const value = useMemo<ThemeContextType>(
-    () => ({ scheme, colors: palettes[scheme], preference, ready, setPreference }),
+    () => ({
+      scheme,
+      colors: palettes[scheme],
+      preference,
+      ready,
+      setPreference,
+    }),
     [scheme, preference, ready],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 };

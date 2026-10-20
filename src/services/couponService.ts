@@ -65,7 +65,8 @@ export function isCurrentlyRedeemable(c: Coupon, now: number): boolean {
   const until = c.validUntil?.toMillis?.();
   if (from && now < from) return false;
   if (until && now > until) return false;
-  if (c.maxRedemptions && (c.redeemedCount ?? 0) >= c.maxRedemptions) return false;
+  if (c.maxRedemptions && (c.redeemedCount ?? 0) >= c.maxRedemptions)
+    return false;
   return true;
 }
 
@@ -124,7 +125,9 @@ export function subscribeAvailableCoupons(
   const unsubTargeted = onSnapshot(
     qTargeted,
     (snap) => {
-      targetedList = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Coupon);
+      targetedList = snap.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as Coupon,
+      );
       readyTargeted = true;
       emit();
     },
@@ -161,7 +164,11 @@ export async function validateCouponRemote(
   >(functions, "validateCoupon");
   const res = await fn({ code: code.trim().toUpperCase(), fare });
   const d = res.data;
-  return { code: d.code, discountAmount: d.discountAmount, description: d.description ?? null };
+  return {
+    code: d.code,
+    discountAmount: d.discountAmount,
+    description: d.description ?? null,
+  };
 }
 
 /**

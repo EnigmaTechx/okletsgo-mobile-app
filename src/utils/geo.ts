@@ -17,7 +17,9 @@ export const haversineKm = (a: LatLng, b: LatLng): number => {
 };
 
 /** A usable coordinate pair from a ride point, or null (missing / 0,0). */
-export const pointOf = (p?: { lat?: number; lng?: number } | null): LatLng | null => {
+export const pointOf = (
+  p?: { lat?: number; lng?: number } | null,
+): LatLng | null => {
   if (!p) return null;
   const lat = Number(p.lat);
   const lng = Number(p.lng);

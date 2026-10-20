@@ -7,7 +7,10 @@ import { Button } from "../../components/ui/Button";
 import { TextField } from "../../components/ui/TextField";
 import { showAlert } from "../../components/ui/alerts";
 import { useAuth } from "../../contexts/AuthContext";
-import { clearRegistrationActive, createProfile } from "../../services/authService";
+import {
+  clearRegistrationActive,
+  createProfile,
+} from "../../services/authService";
 import { logAuthEvent } from "../../services/telemetryService";
 import { describeProfileSaveError } from "../../utils/authErrors";
 import {
@@ -59,12 +62,21 @@ export default function DriverVehicleInfo() {
   const valid = Object.keys(errors).length === 0;
   const shown = (f: Field) => (touched[f] ? errors[f] : undefined);
 
-  const set = (field: Field, shape: (v: string) => string = (v) => v) => (v: string) =>
-    setValues((cur) => ({ ...cur, [field]: shape(v) }));
-  const touch = (field: Field) => () => setTouched((cur) => ({ ...cur, [field]: true }));
+  const set =
+    (field: Field, shape: (v: string) => string = (v) => v) =>
+    (v: string) =>
+      setValues((cur) => ({ ...cur, [field]: shape(v) }));
+  const touch = (field: Field) => () =>
+    setTouched((cur) => ({ ...cur, [field]: true }));
 
   const submit = async () => {
-    setTouched({ make: true, model: true, color: true, plateNumber: true, licenseNumber: true });
+    setTouched({
+      make: true,
+      model: true,
+      color: true,
+      plateNumber: true,
+      licenseNumber: true,
+    });
     if (!currentUser || !valid) return;
     setSaving(true);
     void logAuthEvent("registration_started", { role: "driver" });
@@ -100,8 +112,8 @@ export default function DriverVehicleInfo() {
       </AppText>
       <AppText variant="display">Your vehicle</AppText>
       <AppText variant="body" color="textSecondary" style={styles.sub}>
-        Riders see the make, model, colour and plate so they can spot you at pickup. Your licence
-        number is kept private and checked before approval.
+        Riders see the make, model, colour and plate so they can spot you at
+        pickup. Your licence number is kept private and checked before approval.
       </AppText>
 
       <View style={styles.form}>
@@ -174,7 +186,13 @@ export default function DriverVehicleInfo() {
         />
       </View>
 
-      <Button title="Finish sign-up" onPress={submit} loading={saving} disabled={!valid} style={styles.cta} />
+      <Button
+        title="Finish sign-up"
+        onPress={submit}
+        loading={saving}
+        disabled={!valid}
+        style={styles.cta}
+      />
     </Screen>
   );
 }

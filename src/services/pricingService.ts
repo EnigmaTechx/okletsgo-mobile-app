@@ -10,7 +10,9 @@ import {
 // Coerce a raw Firestore document into a complete PricingConfig, falling back
 // to defaults for any missing/invalid field so a partial doc can never break
 // fare calculation.
-export function coercePricing(data: Record<string, unknown> | undefined): PricingConfig {
+export function coercePricing(
+  data: Record<string, unknown> | undefined,
+): PricingConfig {
   const num = (v: unknown, fallback: number) =>
     typeof v === "number" && Number.isFinite(v) ? v : fallback;
   return {
@@ -62,7 +64,9 @@ export function initPricingConfig(): () => void {
     (snapshot) => {
       clearTimeout(timeout);
       if (snapshot.exists()) {
-        setActivePricing(coercePricing(snapshot.data() as Record<string, unknown>));
+        setActivePricing(
+          coercePricing(snapshot.data() as Record<string, unknown>),
+        );
       } else {
         setActivePricing(DEFAULT_PRICING);
       }

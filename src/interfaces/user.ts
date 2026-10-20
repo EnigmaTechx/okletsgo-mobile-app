@@ -35,10 +35,7 @@ export interface UserProfile {
 
   // --- NEW STATUS FIELD (Made optional for backward compatibility) ---
   status?:
-    | "active"
-    | "suspended"
-    | "pending_approval"
-    | "scheduled_for_deletion";
+    "active" | "suspended" | "pending_approval" | "scheduled_for_deletion";
 
   // Images (Future)
   photoUrl?: string;

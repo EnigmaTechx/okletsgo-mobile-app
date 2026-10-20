@@ -19,7 +19,12 @@ describe("pointOf / kmFromDriver", () => {
     expect(pointOf(undefined)).toBeNull();
     expect(pointOf({ lat: 0, lng: 0 })).toBeNull();
     expect(pointOf({ lat: Number.NaN, lng: 1 })).toBeNull();
-    expect(pointOf({ lat: "43.6" as unknown as number, lng: "-79.4" as unknown as number })).toEqual({
+    expect(
+      pointOf({
+        lat: "43.6" as unknown as number,
+        lng: "-79.4" as unknown as number,
+      }),
+    ).toEqual({
       lat: 43.6,
       lng: -79.4,
     });
@@ -27,7 +32,10 @@ describe("pointOf / kmFromDriver", () => {
   it("returns null when the driver's position is unknown", () => {
     expect(kmFromDriver(null, pearson)).toBeNull();
     expect(kmFromDriver(union, { address: "x" } as never)).toBeNull();
-    expect(kmFromDriver(union, pearson)).toBeCloseTo(haversineKm(union, pearson), 6);
+    expect(kmFromDriver(union, pearson)).toBeCloseTo(
+      haversineKm(union, pearson),
+      6,
+    );
   });
 });
 

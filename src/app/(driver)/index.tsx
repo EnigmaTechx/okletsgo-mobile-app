@@ -20,7 +20,9 @@ export default function DriverHome() {
           <AppText variant="eyebrow" color="primary">
             DRIVER
           </AppText>
-          <AppText variant="title">Hi {userProfile?.firstName ?? "there"}</AppText>
+          <AppText variant="title">
+            Hi {userProfile?.firstName ?? "there"}
+          </AppText>
         </View>
         <Logo width={110} />
       </View>
@@ -28,15 +30,18 @@ export default function DriverHome() {
       <View
         style={[
           styles.card,
-          { backgroundColor: colors.surface, borderColor: online ? colors.success : colors.border },
+          {
+            backgroundColor: colors.surface,
+            borderColor: online ? colors.success : colors.border,
+          },
         ]}
       >
         <AppText variant="heading" color={online ? "success" : "text"}>
           {online ? "You're online" : "You're offline"}
         </AppText>
         <AppText variant="small" color="textSecondary">
-          Going online, ride requests and the active trip screen arrive in phase 3. Until then, keep
-          using the current OK Let&apos;s Go app to drive.
+          Going online, ride requests and the active trip screen arrive in phase
+          3. Until then, keep using the current OK Let&apos;s Go app to drive.
         </AppText>
       </View>
     </Screen>
@@ -50,5 +55,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: spacing.xl,
   },
-  card: { padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, gap: spacing.sm },
+  card: {
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    gap: spacing.sm,
+  },
 });

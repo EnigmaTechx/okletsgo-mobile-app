@@ -69,7 +69,11 @@ const readPending = async (): Promise<AuthEventPayload[]> => {
 const writePending = async (list: AuthEventPayload[]) => {
   try {
     if (list.length === 0) await AsyncStorage.removeItem(PENDING_KEY);
-    else await AsyncStorage.setItem(PENDING_KEY, JSON.stringify(list.slice(-PENDING_MAX)));
+    else
+      await AsyncStorage.setItem(
+        PENDING_KEY,
+        JSON.stringify(list.slice(-PENDING_MAX)),
+      );
   } catch {
     /* storage unavailable — nothing more we can do */
   }
@@ -122,7 +126,10 @@ export async function logAuthEvent(
   try {
     await writeEvent(payload, false);
   } catch (second) {
-    console.warn("Auth event write failed again — queued for next launch", second);
+    console.warn(
+      "Auth event write failed again — queued for next launch",
+      second,
+    );
     await writePending([...(await readPending()), payload]);
   }
 }

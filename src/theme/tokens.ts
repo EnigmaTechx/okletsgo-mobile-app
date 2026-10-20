@@ -110,14 +110,29 @@ export const fontFamily = {
 } as const;
 
 export const typography = {
-  display: { fontFamily: fontFamily.extrabold, fontSize: 30, lineHeight: 34, letterSpacing: -0.3 },
-  title: { fontFamily: fontFamily.extrabold, fontSize: 24, lineHeight: 28, letterSpacing: -0.2 },
+  display: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: 30,
+    lineHeight: 34,
+    letterSpacing: -0.3,
+  },
+  title: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: 24,
+    lineHeight: 28,
+    letterSpacing: -0.2,
+  },
   heading: { fontFamily: fontFamily.extrabold, fontSize: 19, lineHeight: 24 },
   body: { fontFamily: fontFamily.medium, fontSize: 15, lineHeight: 22 },
   bodyStrong: { fontFamily: fontFamily.bold, fontSize: 15, lineHeight: 22 },
   small: { fontFamily: fontFamily.medium, fontSize: 13, lineHeight: 18 },
   smallStrong: { fontFamily: fontFamily.bold, fontSize: 13, lineHeight: 18 },
-  eyebrow: { fontFamily: fontFamily.extrabold, fontSize: 12, lineHeight: 16, letterSpacing: 1.4 },
+  eyebrow: {
+    fontFamily: fontFamily.extrabold,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 1.4,
+  },
   button: { fontFamily: fontFamily.extrabold, fontSize: 18, lineHeight: 22 },
   tab: { fontFamily: fontFamily.bold, fontSize: 11, lineHeight: 14 },
 } as const;

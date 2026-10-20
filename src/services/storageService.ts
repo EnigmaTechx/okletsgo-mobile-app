@@ -11,7 +11,11 @@ import type { VehicleInfo } from "../interfaces/user";
 
 type PhotoKind = "profile" | "vehicle";
 
-async function uploadLocalFile(uid: string, kind: PhotoKind, fileUri: string): Promise<string> {
+async function uploadLocalFile(
+  uid: string,
+  kind: PhotoKind,
+  fileUri: string,
+): Promise<string> {
   const fileRef = ref(storage, `users/${uid}/${kind}.jpg`);
   await putFile(fileRef, fileUri, { contentType: "image/jpeg" });
   return getDownloadURL(fileRef);
@@ -25,7 +29,10 @@ export const uploadProfilePhotoFile = (uid: string, fileUri: string) =>
 export const uploadVehiclePhotoFile = (uid: string, fileUri: string) =>
   uploadLocalFile(uid, "vehicle", fileUri);
 
-export async function uploadProfilePhoto(uid: string, fileUri: string): Promise<string> {
+export async function uploadProfilePhoto(
+  uid: string,
+  fileUri: string,
+): Promise<string> {
   const url = await uploadProfilePhotoFile(uid, fileUri);
   await setDoc(doc(db, "users", uid), { photoUrl: url }, { merge: true });
   return url;

@@ -1,4 +1,10 @@
-import { collection, getDocs, orderBy, query, where } from "@react-native-firebase/firestore";
+import {
+  collection,
+  getDocs,
+  orderBy,
+  query,
+  where,
+} from "@react-native-firebase/firestore";
 import { db } from "./firebase";
 import type { RideRequest } from "../interfaces/ride";
 import { driverPayout } from "../utils/fareCalculator";
@@ -84,11 +90,17 @@ export const weekLabel = (start: Date, now = new Date()): string => {
     start.getMonth() === last.getMonth()
       ? `${mon(start)} ${start.getDate()} – ${last.getDate()}`
       : `${mon(start)} ${start.getDate()} – ${mon(last)} ${last.getDate()}`;
-  return start.getFullYear() === now.getFullYear() ? range : `${range}, ${start.getFullYear()}`;
+  return start.getFullYear() === now.getFullYear()
+    ? range
+    : `${range}, ${start.getFullYear()}`;
 };
 
 /** Pure: one row per Monday–Sunday week, newest first. */
-export const buildWeekPay = (start: Date, rides: RideRequest[], now = new Date()): WeekPay => {
+export const buildWeekPay = (
+  start: Date,
+  rides: RideRequest[],
+  now = new Date(),
+): WeekPay => {
   const end = new Date(start);
   end.setDate(end.getDate() + 7);
   const items = rides
@@ -100,7 +112,8 @@ export const buildWeekPay = (start: Date, rides: RideRequest[], now = new Date()
   const completed = items.filter((r) => r.status === "completed");
   const cancelled = items.filter((r) => r.status === "cancelled");
   const cancellationEarnings = cancelled.reduce((s, r) => s + rideEarned(r), 0);
-  const earned = completed.reduce((s, r) => s + rideEarned(r), 0) + cancellationEarnings;
+  const earned =
+    completed.reduce((s, r) => s + rideEarned(r), 0) + cancellationEarnings;
   const t = now.getTime();
   return {
     key: weekKey(start),

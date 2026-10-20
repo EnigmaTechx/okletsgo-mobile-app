@@ -1,7 +1,8 @@
 import { timeUntil } from "./timeUntil";
 
 const now = new Date(2026, 9, 8, 13, 42); // 1:42 PM local
-const plus = (min: number) => new Date(now.getTime() + min * 60000).toISOString();
+const plus = (min: number) =>
+  new Date(now.getTime() + min * 60000).toISOString();
 
 describe("timeUntil", () => {
   it("minutes, hours, days", () => {

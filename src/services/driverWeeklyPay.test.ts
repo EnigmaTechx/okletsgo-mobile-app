@@ -27,7 +27,8 @@ const ride = (over: Partial<RideRequest>): RideRequest =>
 const at = (y: number, m: number, d: number, h = 10) =>
   new Date(y, m, d, h).toISOString();
 
-const pay = (...fares: number[]) => fares.reduce((s, f) => s + driverPayout(f), 0);
+const pay = (...fares: number[]) =>
+  fares.reduce((s, f) => s + driverPayout(f), 0);
 
 describe("week keys and labels", () => {
   it("round-trips a Monday through the key", () => {
@@ -50,10 +51,22 @@ describe("buildWeekPay / buildWeeklyPay", () => {
   const rides: RideRequest[] = [
     // this week
     ride({ completedAt: at(2026, 9, 12, 9), estimatedPrice: 40, distance: 8 }),
-    ride({ completedAt: at(2026, 9, 14, 8), estimatedPrice: 60, actualDistanceKm: 5 }),
-    ride({ status: "cancelled", cancelledAt: at(2026, 9, 13), cancellationFee: 20 }),
+    ride({
+      completedAt: at(2026, 9, 14, 8),
+      estimatedPrice: 60,
+      actualDistanceKm: 5,
+    }),
+    ride({
+      status: "cancelled",
+      cancelledAt: at(2026, 9, 13),
+      cancellationFee: 20,
+    }),
     // Sunday 23:59 of last week — must land in LAST week, not this one
-    ride({ completedAt: new Date(2026, 9, 11, 23, 59).toISOString(), estimatedPrice: 100, distance: 20 }),
+    ride({
+      completedAt: new Date(2026, 9, 11, 23, 59).toISOString(),
+      estimatedPrice: 100,
+      distance: 20,
+    }),
     // last week
     ride({ completedAt: at(2026, 9, 7), estimatedPrice: 30, distance: 6 }),
     // nine weeks ago — outside the default window
