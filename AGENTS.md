@@ -60,6 +60,12 @@ shared roadmap doc; per-phase notes are in `docs/`.
   features, terms, app (update gate), and promotions from phase 4.
 - **Theme.** Colours come from `useTheme().colors`, never a hex in a component.
   Both palettes are in `src/theme/tokens.ts`; text goes through `AppText`.
+- **Forms and the keyboard.** Any screen with inputs uses `<Screen scroll>`,
+  which is a `KeyboardAwareScrollView` from react-native-keyboard-controller
+  (`KeyboardProvider` sits in the root layout). Never reach for React
+  Native's `KeyboardAvoidingView`: with Android edge-to-edge it leaves the
+  fields under the keyboard unreachable. Chain fields with `returnKeyType`
+  + `onSubmitEditing`.
 - **Lint rules that bite.** The React Compiler is on: no components declared
   inside render, no `ref.current` reads during render (use `useState(() => …)`
   for one-time setup), and escape apostrophes in JSX text (`&apos;`).

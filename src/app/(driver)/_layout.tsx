@@ -1,22 +1,15 @@
 import React from "react";
 import { Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TabBarIcon } from "../../components/TabBarIcon";
+import { tabScreenOptions } from "../../components/tabBarOptions";
 import { useTheme } from "../../contexts/ThemeContext";
-import { typography } from "../../theme/tokens";
 
 export default function DriverLayout() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
-        tabBarLabelStyle: typography.tab,
-        sceneStyle: { backgroundColor: colors.background },
-      }}
-    >
+    <Tabs screenOptions={tabScreenOptions(colors, insets)}>
       <Tabs.Screen
         name="index"
         options={{

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useRef, useState } from "react";
+import { StyleSheet, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Screen } from "../../components/ui/Screen";
 import { AppText } from "../../components/ui/AppText";
@@ -31,6 +31,8 @@ export default function CompleteProfile() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
+  const lastNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
 
   const valid = firstName.trim().length > 0 && lastName.trim().length > 0 && EMAIL_RE.test(email.trim());
 
@@ -73,10 +75,32 @@ export default function CompleteProfile() {
         Your driver sees your first name only. We email receipts and important notices to this address.
       </AppText>
 
+      {/* "Next" on the keyboard moves down the form; the screen scrolls the
+          focused field into view above the keyboard. */}
       <View style={styles.form}>
-        <TextField label="First name" value={firstName} onChangeText={setFirstName} autoCapitalize="words" textContentType="givenName" />
-        <TextField label="Last name" value={lastName} onChangeText={setLastName} autoCapitalize="words" textContentType="familyName" />
         <TextField
+          label="First name"
+          value={firstName}
+          onChangeText={setFirstName}
+          autoCapitalize="words"
+          textContentType="givenName"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          onSubmitEditing={() => lastNameRef.current?.focus()}
+        />
+        <TextField
+          ref={lastNameRef}
+          label="Last name"
+          value={lastName}
+          onChangeText={setLastName}
+          autoCapitalize="words"
+          textContentType="familyName"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          onSubmitEditing={() => emailRef.current?.focus()}
+        />
+        <TextField
+          ref={emailRef}
           label="Email"
           value={email}
           onChangeText={setEmail}
@@ -84,6 +108,8 @@ export default function CompleteProfile() {
           keyboardType="email-address"
           textContentType="emailAddress"
           autoComplete="email"
+          returnKeyType="done"
+          onSubmitEditing={() => void submit()}
         />
         <TextField label="Mobile number" value={phone} editable={false} />
       </View>

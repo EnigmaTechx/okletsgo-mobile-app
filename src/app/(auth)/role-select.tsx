@@ -71,7 +71,17 @@ export default function RoleSelect() {
   const cancel = () =>
     showAlert("Cancel registration?", "You can sign in again with any number later.", [
       { text: "Keep going", style: "cancel" },
-      { text: "Cancel registration", style: "destructive", onPress: () => void logout() },
+      {
+        text: "Cancel registration",
+        style: "destructive",
+        onPress: () => {
+          // The auth group stays mounted for a signed-out session, so leave
+          // this screen explicitly once the sign-out has gone through.
+          void logout()
+            .catch((err) => console.warn("Cancel registration: sign-out failed", err))
+            .finally(() => router.replace("/(auth)/welcome"));
+        },
+      },
     ]);
 
   return (
