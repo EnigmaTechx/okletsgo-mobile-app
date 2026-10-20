@@ -34,8 +34,6 @@ export default function CompleteProfile() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
-  const lastNameRef = useRef<TextInput>(null);
-  const emailRef = useRef<TextInput>(null);
 
   const valid =
     firstName.trim().length > 0 &&
@@ -104,7 +102,6 @@ export default function CompleteProfile() {
           textContentType="familyName"
         />
         <TextField
-          ref={emailRef}
           label="Email"
           value={email}
           onChangeText={setEmail}
