@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import {
   DarkTheme,
   DefaultTheme,
@@ -40,13 +41,15 @@ export default function RootLayout() {
   useEffect(() => initPricingConfig(), []);
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <FeatureFlagsProvider>
-          <RootNavigator fontsLoaded={fontsLoaded} />
-        </FeatureFlagsProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <KeyboardProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <FeatureFlagsProvider>
+            <RootNavigator fontsLoaded={fontsLoaded} />
+          </FeatureFlagsProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </KeyboardProvider>
   );
 }
 

@@ -14,8 +14,10 @@ export default function Welcome() {
 
   return (
     <Screen edges={["top", "bottom", "left", "right"]}>
+      {/* Logo and copy sit together near the top; the spare height goes
+          below them, above the buttons, instead of between logo and text. */}
       <View style={styles.hero}>
-        <Logo width={244} />
+        <Logo width={236} />
       </View>
       <View style={styles.copy}>
         <AppText variant="eyebrow" color="success">
@@ -35,6 +37,7 @@ export default function Welcome() {
           Your first trip up to 10 km is on us once you finish signing up.
         </AppText>
       </View>
+      <View style={styles.spacer} />
       <View style={styles.actions}>
         <Button title="Get started" onPress={() => router.push("/(auth)/login")} />
         <Button
@@ -48,7 +51,7 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  hero: { flex: 1, alignItems: "center", justifyContent: "center" },
+  hero: { alignItems: "center", paddingTop: spacing.xxl, paddingBottom: spacing.xl },
   copy: { gap: spacing.md, paddingHorizontal: spacing.sm },
   gift: {
     marginTop: spacing.xl,
@@ -57,5 +60,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: spacing.xs,
   },
+  spacer: { flex: 1 },
   actions: { gap: spacing.sm, paddingVertical: spacing.xl },
 });

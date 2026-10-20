@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { onAuthStateChanged, type User } from "@react-native-firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "@react-native-firebase/auth";
 import {
   deleteField,
   doc,
@@ -128,7 +128,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.warn("Failed to clear push token on logout:", err);
     }
-    await auth.signOut();
+    // Modular call: the Auth instance from getAuth() carries no methods in
+    // React Native Firebase 26, so `auth.signOut()` throws.
+    await signOut(auth);
   }, []);
 
   const value = useMemo(
