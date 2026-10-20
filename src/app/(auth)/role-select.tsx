@@ -1,11 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { Screen } from "../../components/ui/Screen";
 import { AppText } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
 import { Logo } from "../../components/ui/Logo";
+import { Screen } from "../../components/ui/Screen";
 import { showAlert } from "../../components/ui/alerts";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -34,10 +34,16 @@ function RoleCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: colors.surface, borderColor: tint, opacity: pressed ? 0.9 : 1 },
+        {
+          backgroundColor: colors.surface,
+          borderColor: tint,
+          opacity: pressed ? 0.9 : 1,
+        },
       ]}
     >
-      <View style={[styles.iconWrap, { backgroundColor: colors.surfaceRaised }]}>
+      <View
+        style={[styles.iconWrap, { backgroundColor: colors.surfaceRaised }]}
+      >
         <Ionicons name={icon} size={30} color={tint} />
       </View>
       <View style={styles.cardCopy}>
@@ -66,23 +72,24 @@ export default function RoleSelect() {
   const phone = params.phone || currentUser?.phoneNumber || "";
 
   const choose = (role: UserRole) =>
-    router.push({ pathname: "/(auth)/complete-profile", params: { role, phone } });
+    router.push({
+      pathname: "/(auth)/complete-profile",
+      params: { role, phone },
+    });
 
   const cancel = () =>
-    showAlert("Cancel registration?", "You can sign in again with any number later.", [
-      { text: "Keep going", style: "cancel" },
-      {
-        text: "Cancel registration",
-        style: "destructive",
-        onPress: () => {
-          // The auth group stays mounted for a signed-out session, so leave
-          // this screen explicitly once the sign-out has gone through.
-          void logout()
-            .catch((err) => console.warn("Cancel registration: sign-out failed", err))
-            .finally(() => router.replace("/(auth)/welcome"));
+    showAlert(
+      "Cancel registration?",
+      "You can sign in again with any number later.",
+      [
+        { text: "Keep going", style: "cancel" },
+        {
+          text: "Cancel registration",
+          style: "destructive",
+          onPress: () => void logout(),
         },
-      },
-    ]);
+      ],
+    );
 
   return (
     <Screen scroll edges={["top", "bottom", "left", "right"]}>
@@ -92,12 +99,17 @@ export default function RoleSelect() {
       <AppText variant="display" align="center">
         How are you riding with us today?
       </AppText>
-      <AppText variant="body" color="textSecondary" align="center" style={styles.sub}>
+      <AppText
+        variant="body"
+        color="textSecondary"
+        align="center"
+        style={styles.sub}
+      >
         Choose one to continue. You can only hold one role per phone number.
       </AppText>
 
       <RoleCard
-        eyebrow="CUSTOMER"
+        eyebrow="RIDER"
         title="Book a ride"
         body="Pick your driver, pay in app, follow the trip live."
         icon="person-outline"
@@ -130,9 +142,16 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderRadius: radius.xl,
     borderWidth: 2,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    marginTop: spacing.lg,
   },
-  iconWrap: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
+  iconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   cardCopy: { flex: 1, gap: 2 },
   footer: { marginTop: "auto", paddingTop: spacing.xl },
 });

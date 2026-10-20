@@ -1,17 +1,20 @@
-import React, { useRef, useState } from "react";
-import { StyleSheet, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Screen } from "../../components/ui/Screen";
+import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { AppText } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
+import { Screen } from "../../components/ui/Screen";
 import { TextField } from "../../components/ui/TextField";
 import { showAlert } from "../../components/ui/alerts";
 import { useAuth } from "../../contexts/AuthContext";
-import { clearRegistrationActive, createProfile } from "../../services/authService";
-import { logAuthEvent } from "../../services/telemetryService";
-import { describeProfileSaveError } from "../../utils/authErrors";
 import type { UserRole } from "../../interfaces/user";
+import {
+  clearRegistrationActive,
+  createProfile,
+} from "../../services/authService";
+import { logAuthEvent } from "../../services/telemetryService";
 import { spacing } from "../../theme/tokens";
+import { describeProfileSaveError } from "../../utils/authErrors";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,7 +37,10 @@ export default function CompleteProfile() {
   const lastNameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
 
-  const valid = firstName.trim().length > 0 && lastName.trim().length > 0 && EMAIL_RE.test(email.trim());
+  const valid =
+    firstName.trim().length > 0 &&
+    lastName.trim().length > 0 &&
+    EMAIL_RE.test(email.trim());
 
   const submit = async () => {
     if (!currentUser || !valid) return;
@@ -67,12 +73,17 @@ export default function CompleteProfile() {
 
   return (
     <Screen scroll edges={["top", "bottom", "left", "right"]}>
-      <AppText variant="eyebrow" color={role === "driver" ? "primary" : "secondary"} style={styles.eyebrow}>
-        {role === "driver" ? "DRIVER · STEP 2 OF 3" : "CUSTOMER · STEP 2 OF 2"}
+      <AppText
+        variant="eyebrow"
+        color={role === "driver" ? "primary" : "secondary"}
+        style={styles.eyebrow}
+      >
+        {role === "driver" ? "DRIVER · STEP 2 OF 3" : "RIDER · STEP 2 OF 2"}
       </AppText>
       <AppText variant="display">Tell us about you</AppText>
       <AppText variant="body" color="textSecondary" style={styles.sub}>
-        Your driver sees your first name only. We email receipts and important notices to this address.
+        Your driver sees your first name only. We email receipts and important
+        notices to this address.
       </AppText>
 
       {/* "Next" on the keyboard moves down the form; the screen scrolls the
@@ -84,20 +95,13 @@ export default function CompleteProfile() {
           onChangeText={setFirstName}
           autoCapitalize="words"
           textContentType="givenName"
-          returnKeyType="next"
-          blurOnSubmit={false}
-          onSubmitEditing={() => lastNameRef.current?.focus()}
         />
         <TextField
-          ref={lastNameRef}
           label="Last name"
           value={lastName}
           onChangeText={setLastName}
           autoCapitalize="words"
           textContentType="familyName"
-          returnKeyType="next"
-          blurOnSubmit={false}
-          onSubmitEditing={() => emailRef.current?.focus()}
         />
         <TextField
           ref={emailRef}
@@ -115,7 +119,9 @@ export default function CompleteProfile() {
       </View>
 
       <Button
-        title={role === "driver" ? "Next: vehicle details" : "Create my account"}
+        title={
+          role === "driver" ? "Next: vehicle details" : "Create my account"
+        }
         onPress={submit}
         loading={saving}
         disabled={!valid}

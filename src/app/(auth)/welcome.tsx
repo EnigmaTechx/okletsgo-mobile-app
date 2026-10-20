@@ -1,12 +1,11 @@
-import React from "react";
-import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Screen } from "../../components/ui/Screen";
+import { StyleSheet, View } from "react-native";
 import { AppText } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
 import { Logo } from "../../components/ui/Logo";
+import { Screen } from "../../components/ui/Screen";
 import { useTheme } from "../../contexts/ThemeContext";
-import { spacing, radius } from "../../theme/tokens";
+import { radius, spacing } from "../../theme/tokens";
 
 export default function Welcome() {
   const router = useRouter();
@@ -25,11 +24,16 @@ export default function Welcome() {
         </AppText>
         <AppText variant="display">Your city. Your ride. Your way.</AppText>
         <AppText variant="body" color="textSecondary">
-          Book in seconds, pick your driver, and follow the trip live from pickup to drop-off.
-          Proudly serving Kitchener, Waterloo and Toronto.
+          Book in seconds, pick your driver, and follow the trip live from
+          pickup to drop-off. Proudly serving Kitchener, Waterloo and Toronto.
         </AppText>
       </View>
-      <View style={[styles.gift, { backgroundColor: colors.surface, borderColor: colors.accent }]}>
+      <View
+        style={[
+          styles.gift,
+          { backgroundColor: colors.surface, borderColor: colors.accent },
+        ]}
+      >
         <AppText variant="smallStrong" color="accent">
           New customers ride free.
         </AppText>
@@ -39,7 +43,10 @@ export default function Welcome() {
       </View>
       <View style={styles.spacer} />
       <View style={styles.actions}>
-        <Button title="Get started" onPress={() => router.push("/(auth)/login")} />
+        <Button
+          title="Get started"
+          onPress={() => router.push("/(auth)/login")}
+        />
         <Button
           title="I already have an account"
           variant="secondary"

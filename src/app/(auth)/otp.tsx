@@ -1,16 +1,22 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Keyboard, Linking, Pressable, StyleSheet, TextInput, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { deleteField, doc, updateDoc } from "@react-native-firebase/firestore";
-import { Screen } from "../../components/ui/Screen";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Keyboard,
+  Linking,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 import { AppText } from "../../components/ui/AppText";
 import { Button } from "../../components/ui/Button";
 import { Logo } from "../../components/ui/Logo";
+import { Screen } from "../../components/ui/Screen";
 import { showAlert } from "../../components/ui/alerts";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
-import { db } from "../../services/firebase";
 import {
   checkUserProfile,
   clearOtpSession,
@@ -22,10 +28,14 @@ import {
   setRegistrationActive,
   type PhoneConfirmation,
 } from "../../services/authService";
+import { db } from "../../services/firebase";
 import { logAuthEvent } from "../../services/telemetryService";
-import { describeSendCodeError, describeVerifyCodeError } from "../../utils/authErrors";
-import { maskPhone, supportMailto } from "../../utils/support";
 import { fontFamily, minTouch, radius, spacing } from "../../theme/tokens";
+import {
+  describeSendCodeError,
+  describeVerifyCodeError,
+} from "../../utils/authErrors";
+import { maskPhone, supportMailto } from "../../utils/support";
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 30;
@@ -39,12 +49,14 @@ export default function Otp() {
   // Recover the verification session if the in-memory one was lost to the app
   // being killed while the rider read their SMS. Resolved once, on mount.
   const [stored] = useState(() => getOtpSession());
-  const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(() => {
-    const live = getConfirmationResult();
-    if (live) return live;
-    const session = getOtpSession();
-    return session ? rebuildConfirmationResult(session.verificationId) : null;
-  });
+  const [confirmation, setConfirmation] = useState<PhoneConfirmation | null>(
+    () => {
+      const live = getConfirmationResult();
+      if (live) return live;
+      const session = getOtpSession();
+      return session ? rebuildConfirmationResult(session.verificationId) : null;
+    },
+  );
   const phone = params.phone || stored?.phone || "";
 
   const [otp, setOtp] = useState("");
@@ -107,7 +119,10 @@ export default function Otp() {
               router.replace(role === "driver" ? "/(driver)" : "/(client)");
             } catch (err) {
               console.error("Error restoring account:", err);
-              showAlert("Restoration failed", "Failed to restore account. Please try again.");
+              showAlert(
+                "Restoration failed",
+                "Failed to restore account. Please try again.",
+              );
             }
           },
         },
@@ -149,12 +164,22 @@ export default function Otp() {
       verifyLock.current = false;
       setLoading(false);
       const friendly = describeVerifyCodeError(err);
-      void logAuthEvent("otp_confirm_failed", { code: friendly.code, phone: maskPhone(phone) });
+      void logAuthEvent("otp_confirm_failed", {
+        code: friendly.code,
+        phone: maskPhone(phone),
+      });
       if (friendly.resend) setOtp("");
       showAlert(friendly.title, friendly.message, [
-        ...(friendly.resend ? [{ text: "Resend code", onPress: () => void handleResend(true) }] : []),
+        ...(friendly.resend
+          ? [{ text: "Resend code", onPress: () => void handleResend(true) }]
+          : []),
         ...(friendly.support
-          ? [{ text: "Email support", onPress: () => Linking.openURL(mailto(friendly.code)) }]
+          ? [
+              {
+                text: "Email support",
+                onPress: () => Linking.openURL(mailto(friendly.code)),
+              },
+            ]
           : []),
         { text: "OK" },
       ]);
@@ -170,16 +195,29 @@ export default function Otp() {
       setConfirmation(await sendOtp(phone));
       setCountdown(RESEND_SECONDS);
       setOtp("");
-      showAlert("Code sent", "A new verification code has been sent to your phone.");
+      showAlert(
+        "Code sent",
+        "A new verification code has been sent to your phone.",
+      );
     } catch (err) {
       console.error("Resend error:", err);
       const friendly = describeSendCodeError(err);
-      void logAuthEvent("otp_send_failed", { code: friendly.code, phone: maskPhone(phone), resend: true });
+      void logAuthEvent("otp_send_failed", {
+        code: friendly.code,
+        phone: maskPhone(phone),
+        resend: true,
+      });
       showAlert(
         friendly.title,
         friendly.message,
         friendly.support
-          ? [{ text: "Email support", onPress: () => Linking.openURL(mailto(friendly.code)) }, { text: "OK" }]
+          ? [
+              {
+                text: "Email support",
+                onPress: () => Linking.openURL(mailto(friendly.code)),
+              },
+              { text: "OK" },
+            ]
           : undefined,
       );
     } finally {
@@ -200,8 +238,13 @@ export default function Otp() {
           accessibilityRole="button"
           accessibilityLabel="Back"
           disabled={loading}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(auth)/login"))}
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace("/(auth)/login")
+          }
+          style={[
+            styles.iconButton,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
         >
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
@@ -214,7 +257,7 @@ export default function Otp() {
       </AppText>
       <AppText variant="display">Enter the 6-digit code</AppText>
       <AppText variant="body" color="textSecondary" style={styles.sub}>
-        We sent it by text to{" "}
+        Enter the code sent to{" "}
         <AppText variant="bodyStrong" color="text">
           {maskPhone(phone)}
         </AppText>
@@ -229,7 +272,8 @@ export default function Otp() {
               styles.box,
               {
                 backgroundColor: colors.surface,
-                borderColor: otp.length === i ? colors.secondary : colors.border,
+                borderColor:
+                  otp.length === i ? colors.secondary : colors.border,
               },
             ]}
           >
@@ -265,7 +309,11 @@ export default function Otp() {
         onPress={() => void handleResend()}
         style={styles.resend}
       >
-        <AppText variant="smallStrong" color={countdown > 0 ? "textMuted" : "primary"} align="center">
+        <AppText
+          variant="smallStrong"
+          color={countdown > 0 ? "textMuted" : "primary"}
+          align="center"
+        >
           {countdown > 0 ? `Resend code in ${countdown}s` : "Resend code"}
         </AppText>
       </Pressable>
@@ -291,7 +339,11 @@ const styles = StyleSheet.create({
   },
   eyebrow: { marginBottom: spacing.sm },
   sub: { marginTop: spacing.sm, marginBottom: spacing.xxl },
-  boxes: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
+  boxes: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
   box: {
     flex: 1,
     height: 60,
@@ -308,5 +360,9 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.bold,
   },
   cta: { marginTop: spacing.xxl },
-  resend: { marginTop: spacing.xl, minHeight: minTouch, justifyContent: "center" },
+  resend: {
+    marginTop: spacing.xl,
+    minHeight: minTouch,
+    justifyContent: "center",
+  },
 });
