@@ -11,7 +11,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import {
   confirmPhoneChange,
-  startPhoneChange,
+  isRecentLoginError,
+  reauthenticateWithPhone,
+  sendPhoneVerification,
   updateProfileFields,
 } from "../../services/profileService";
 import { logAuthEvent } from "../../services/telemetryService";
@@ -40,8 +42,22 @@ const tenDigits = (phone: string): string => {
 };
 
 /**
+ * Which number a pending SMS code is for: the new one ("change") or, when
+ * Firebase wants a fresh sign-in first, the current one ("reauth").
+ */
+type VerificationPurpose = "change" | "reauth";
+
+interface PendingVerification {
+  purpose: VerificationPurpose;
+  verificationId: string;
+  code: string;
+}
+
+/**
  * Edit name, email and mobile number. A new number is verified by SMS
  * before it is saved, as in the Ionic app; everything else saves at once.
+ * If the sign-in is too old for Firebase to allow the change, the current
+ * number is confirmed by SMS first, then the new-number code is sent again.
  */
 export default function EditProfile() {
   const router = useRouter();
@@ -60,11 +76,10 @@ export default function EditProfile() {
   const [email, setEmail] = useState(initial.email);
   const [phone, setPhone] = useState(initial.phone);
   const [saving, setSaving] = useState(false);
-  // Set once a code has been sent to the new number.
-  const [verification, setVerification] = useState<{
-    verificationId: string;
-    code: string;
-  } | null>(null);
+  // Set while an SMS code is outstanding (see VerificationPurpose).
+  const [verification, setVerification] = useState<PendingVerification | null>(
+    null,
+  );
 
   const emailError =
     email.length > 0 && !EMAIL_RE.test(email.trim())
@@ -125,27 +140,35 @@ export default function EditProfile() {
       `We will text a code to +1 ${formatPhone(phone)} to confirm the change.`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Send code", onPress: () => void sendCode() },
+        { text: "Send code", onPress: () => void sendCode("change") },
       ],
     );
   };
 
-  const sendCode = async () => {
+  const cancelVerification = () => {
+    setVerification(null);
+    setPhone(initial.phone);
+  };
+
+  /** Text a code to the new number ("change") or the current one ("reauth"). */
+  const sendCode = async (purpose: VerificationPurpose) => {
+    const target = `+1${purpose === "change" ? phone : initial.phone}`;
     setSaving(true);
     try {
-      const start = await startPhoneChange(`+1${phone}`);
-      setVerification({
-        verificationId: start.verificationId,
-        code: start.autoCode ?? "",
-      });
-      if (start.autoCode)
-        await verifyAndSave(start.verificationId, start.autoCode);
+      const sent = await sendPhoneVerification(target);
+      const pending: PendingVerification = {
+        purpose,
+        verificationId: sent.verificationId,
+        code: sent.autoCode ?? "",
+      };
+      setVerification(pending);
+      if (sent.autoCode) await verifyCode(pending);
     } catch (err) {
       const friendly = describeSendCodeError(err);
       void logAuthEvent("otp_send_failed", {
         code: friendly.code,
-        phone: maskPhone(`+1${phone}`),
-        reason: "phone_change",
+        phone: maskPhone(target),
+        reason: `phone_change_${purpose}`,
       });
       showAlert(friendly.title, friendly.message);
     } finally {
@@ -153,23 +176,67 @@ export default function EditProfile() {
     }
   };
 
-  const verifyAndSave = async (verificationId: string, code: string) => {
-    if (!currentUser || code.length !== 6) return;
+  /** Firebase wants a fresh sign-in: offer to confirm the current number. */
+  const askToReauthenticate = () => {
+    showAlert(
+      "Please confirm it's you",
+      `Because you signed in a while ago, we need to verify your current number first. We will text a code to +1 ${formatPhone(initial.phone)}, then send a new one to +1 ${formatPhone(phone)}.`,
+      [
+        { text: "Cancel", style: "cancel", onPress: cancelVerification },
+        { text: "Send code", onPress: () => void sendCode("reauth") },
+      ],
+    );
+  };
+
+  const verifyCode = async (pending: PendingVerification) => {
+    if (!currentUser || pending.code.length !== 6) return;
     setSaving(true);
     try {
-      await confirmPhoneChange(currentUser, verificationId, code);
+      if (pending.purpose === "reauth") {
+        await reauthenticateWithPhone(
+          currentUser,
+          pending.verificationId,
+          pending.code,
+        );
+        setVerification(null);
+        // Verified: now the new number, as if the user had just signed in.
+        setSaving(false);
+        await sendCode("change");
+        return;
+      }
+      await confirmPhoneChange(
+        currentUser,
+        pending.verificationId,
+        pending.code,
+      );
       await writeProfile();
       setVerification(null);
     } catch (err) {
+      if (pending.purpose === "change" && isRecentLoginError(err)) {
+        setVerification(null);
+        askToReauthenticate();
+        return;
+      }
       const friendly = describeVerifyCodeError(err);
-      showAlert(friendly.title, friendly.message);
+      console.error(`Phone ${pending.purpose} verification failed:`, err);
+      void logAuthEvent("phone_change_failed", {
+        code: friendly.code,
+        step: pending.purpose,
+        phone: maskPhone(`+1${phone}`),
+      });
+      showAlert(
+        friendly.title,
+        friendly.unknown
+          ? `${friendly.message}\n\nError code: ${friendly.code}`
+          : friendly.message,
+      );
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Screen scroll>
+    <Screen scroll edges={["left", "right"]}>
       <View style={styles.hero}>
         <Avatar
           firstName={firstName}
@@ -235,9 +302,17 @@ export default function EditProfile() {
             { backgroundColor: colors.surface, borderColor: colors.secondary },
           ]}
         >
-          <AppText variant="bodyStrong">Enter the 6-digit code</AppText>
+          <AppText variant="bodyStrong">
+            {verification.purpose === "reauth"
+              ? "Confirm your current number"
+              : "Enter the 6-digit code"}
+          </AppText>
           <AppText variant="small" color="textSecondary">
-            Sent by text to +1 {formatPhone(phone)}.
+            Sent by text to +1{" "}
+            {formatPhone(
+              verification.purpose === "reauth" ? initial.phone : phone,
+            )}
+            .
           </AppText>
           <TextField
             value={verification.code}
@@ -255,20 +330,17 @@ export default function EditProfile() {
             editable={!saving}
           />
           <Button
-            title="Verify and save"
-            onPress={() =>
-              void verifyAndSave(verification.verificationId, verification.code)
+            title={
+              verification.purpose === "reauth" ? "Confirm" : "Verify and save"
             }
+            onPress={() => void verifyCode(verification)}
             loading={saving}
             disabled={verification.code.length !== 6}
           />
           <Button
             title="Cancel number change"
             variant="ghost"
-            onPress={() => {
-              setVerification(null);
-              setPhone(initial.phone);
-            }}
+            onPress={cancelVerification}
           />
         </View>
       ) : (
@@ -285,7 +357,12 @@ export default function EditProfile() {
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
+  hero: {
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
   form: { gap: spacing.lg },
   verify: {
     marginTop: spacing.xl,

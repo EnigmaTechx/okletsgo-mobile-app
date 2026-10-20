@@ -74,7 +74,7 @@ export default function TermsOfUse() {
 
   if (remote === undefined) {
     return (
-      <Screen>
+      <Screen edges={["left", "right"]}>
         <View style={styles.loading}>
           <ActivityIndicator color={colors.primary} />
           <AppText variant="small" color="textMuted">
@@ -86,7 +86,7 @@ export default function TermsOfUse() {
   }
 
   return (
-    <Screen scroll>
+    <Screen scroll edges={["left", "right"]}>
       <AppText variant="small" color="textMuted" style={styles.date}>
         Effective date: {effectiveDate}
       </AppText>
