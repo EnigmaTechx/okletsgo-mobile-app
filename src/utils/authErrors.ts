@@ -18,6 +18,8 @@ export interface FriendlyAuthError {
   support?: boolean;
   /** Only an exact typo — keep the entered digits' screen, no navigation. */
   retry?: boolean;
+  /** No specific copy matched; the raw code is worth surfacing to support. */
+  unknown?: boolean;
 }
 
 export const extractErrorCode = (err: unknown): string => {
@@ -41,6 +43,7 @@ const GENERIC: Omit<FriendlyAuthError, "code"> = {
   message:
     "We couldn't complete that step. Please try again in a moment — and if it keeps happening, email us so we can help.",
   support: true,
+  unknown: true,
 };
 
 /** Errors from sending the code (Login) and resending it (OTP). */
@@ -150,6 +153,25 @@ export const describeVerifyCodeError = (err: unknown): FriendlyAuthError => {
         message:
           "This account has been disabled. Please email us if you think this is a mistake.",
         support: true,
+      };
+    // The rest only arise when changing the number on an existing account.
+    case "auth/credential-already-in-use":
+    case "auth/account-exists-with-different-credential":
+    case "auth/phone-number-already-exists":
+      return {
+        code,
+        title: "Number already in use",
+        message:
+          "That mobile number is already linked to another OK Let's Go account. Use a different number, or email us if you think this is a mistake.",
+        support: true,
+      };
+    case "auth/requires-recent-login":
+      return {
+        code,
+        title: "Please confirm it's you",
+        message:
+          "For your security, we need to verify your current number before changing it. Please try again and follow the prompt.",
+        retry: true,
       };
     default:
       return { code, ...GENERIC };

@@ -84,7 +84,7 @@ export default function Support() {
   };
 
   return (
-    <Screen scroll>
+    <Screen scroll edges={["left", "right"]}>
       <AppText variant="eyebrow" color="textMuted" style={styles.label}>
         FROM
       </AppText>

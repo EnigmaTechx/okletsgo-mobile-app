@@ -1,5 +1,6 @@
 import {
   PhoneAuthProvider,
+  reauthenticateWithCredential,
   updatePhoneNumber,
   verifyPhoneNumber,
   type User,
@@ -49,14 +50,22 @@ export async function scheduleAccountDeletion(uid: string): Promise<void> {
 // Changing the sign-in number means re-verifying it by SMS. The native SDK
 // reports progress through a listener; this wraps it so the screen sees a
 // verificationId (code sent) or, on Android auto-retrieval, the code itself.
+//
+// Firebase also treats the change as a sensitive operation: it refuses with
+// auth/requires-recent-login unless the user signed in within the last few
+// minutes. The screen then confirms the *current* number by SMS
+// (`reauthenticateWithPhone`) and sends the new-number code again.
 
-export interface PhoneChangeStart {
+export interface PhoneVerification {
   verificationId: string;
   /** Present when Android read the SMS itself; the screen can skip the input. */
   autoCode: string | null;
 }
 
-export function startPhoneChange(phoneE164: string): Promise<PhoneChangeStart> {
+/** Text a verification code to `phoneE164` and resolve once it is on its way. */
+export function sendPhoneVerification(
+  phoneE164: string,
+): Promise<PhoneVerification> {
   return new Promise((resolve, reject) => {
     let settled = false;
     const settle = (fn: () => void) => {
@@ -100,6 +109,25 @@ export async function confirmPhoneChange(
   const credential = PhoneAuthProvider.credential(verificationId, code);
   await updatePhoneNumber(user, credential);
 }
+
+/** Prove ownership of the current number so a sensitive change can proceed. */
+export async function reauthenticateWithPhone(
+  user: User,
+  verificationId: string,
+  code: string,
+): Promise<void> {
+  const credential = PhoneAuthProvider.credential(verificationId, code);
+  await reauthenticateWithCredential(user, credential);
+}
+
+/** True when the error is Firebase asking for a fresh sign-in first. */
+export const isRecentLoginError = (err: unknown): boolean =>
+  !!err &&
+  typeof err === "object" &&
+  /auth\/requires-recent-login/.test(
+    String((err as { code?: unknown }).code ?? "") +
+      String((err as { message?: unknown }).message ?? ""),
+  );
 
 // ─── Terms of Use ───────────────────────────────────────────────────────────
 
