@@ -13,12 +13,23 @@ interface Props extends TextProps {
   align?: TextStyle["textAlign"];
 }
 
-export function AppText({ variant = "body", color = "text", align, style, ...rest }: Props) {
+export function AppText({
+  variant = "body",
+  color = "text",
+  align,
+  style,
+  ...rest
+}: Props) {
   const { colors } = useTheme();
   return (
     <Text
       {...rest}
-      style={[typography[variant], { color: colors[color] }, align ? { textAlign: align } : null, style]}
+      style={[
+        typography[variant],
+        { color: colors[color] },
+        align ? { textAlign: align } : null,
+        style,
+      ]}
     />
   );
 }

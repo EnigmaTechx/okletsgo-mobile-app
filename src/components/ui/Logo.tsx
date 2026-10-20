@@ -6,7 +6,13 @@ const logo = require("../../../assets/images/logo.png");
 // The exact approved logo asset (2298 × 1200). Never redrawn or recoloured.
 const ASPECT = 2298 / 1200;
 
-export function Logo({ width = 180, style }: { width?: number; style?: ImageStyle }) {
+export function Logo({
+  width = 180,
+  style,
+}: {
+  width?: number;
+  style?: ImageStyle;
+}) {
   return (
     <Image
       source={logo}

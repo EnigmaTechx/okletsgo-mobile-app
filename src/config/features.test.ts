@@ -1,4 +1,8 @@
-import { FEATURE_CATALOGUE, isFeatureVisible, type FeatureFlagsDoc } from "./features";
+import {
+  FEATURE_CATALOGUE,
+  isFeatureVisible,
+  type FeatureFlagsDoc,
+} from "./features";
 
 const client = { uid: "c1", role: "client" as const };
 const driver = { uid: "d1", role: "driver" as const };

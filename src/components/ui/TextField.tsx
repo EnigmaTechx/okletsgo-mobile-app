@@ -17,7 +17,11 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
 ) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
-  const borderColor = error ? colors.danger : focused ? colors.secondary : colors.border;
+  const borderColor = error
+    ? colors.danger
+    : focused
+      ? colors.secondary
+      : colors.border;
 
   return (
     <View style={styles.wrap}>
@@ -26,7 +30,9 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
           {label.toUpperCase()}
         </AppText>
       ) : null}
-      <View style={[styles.field, { backgroundColor: colors.surface, borderColor }]}>
+      <View
+        style={[styles.field, { backgroundColor: colors.surface, borderColor }]}
+      >
         {prefix ? (
           <AppText variant="heading" color="text" style={styles.prefix}>
             {prefix}

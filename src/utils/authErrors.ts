@@ -60,7 +60,8 @@ export const describeSendCodeError = (err: unknown): FriendlyAuthError => {
       return {
         code,
         title: "Invalid number",
-        message: "That phone number doesn't look right. Please check it and try again.",
+        message:
+          "That phone number doesn't look right. Please check it and try again.",
         retry: true,
       };
     case "auth/quota-exceeded":
@@ -75,7 +76,8 @@ export const describeSendCodeError = (err: unknown): FriendlyAuthError => {
       return {
         code,
         title: "No connection",
-        message: "We couldn't reach the server. Check your internet connection and try again.",
+        message:
+          "We couldn't reach the server. Check your internet connection and try again.",
         retry: true,
       };
     case "auth/captcha-check-failed":
@@ -93,7 +95,8 @@ export const describeSendCodeError = (err: unknown): FriendlyAuthError => {
       return {
         code,
         title: "Account unavailable",
-        message: "This account has been disabled. Please email us if you think this is a mistake.",
+        message:
+          "This account has been disabled. Please email us if you think this is a mistake.",
         support: true,
       };
     default:
@@ -136,14 +139,16 @@ export const describeVerifyCodeError = (err: unknown): FriendlyAuthError => {
       return {
         code,
         title: "No connection",
-        message: "We couldn't reach the server. Check your internet connection and tap Verify again.",
+        message:
+          "We couldn't reach the server. Check your internet connection and tap Verify again.",
         retry: true,
       };
     case "auth/user-disabled":
       return {
         code,
         title: "Account unavailable",
-        message: "This account has been disabled. Please email us if you think this is a mistake.",
+        message:
+          "This account has been disabled. Please email us if you think this is a mistake.",
         support: true,
       };
     default:
@@ -163,11 +168,16 @@ export const describeProfileSaveError = (err: unknown): FriendlyAuthError => {
       support: true,
     };
   }
-  if (code === "unavailable" || code.includes("network") || code.includes("unavailable")) {
+  if (
+    code === "unavailable" ||
+    code.includes("network") ||
+    code.includes("unavailable")
+  ) {
     return {
       code,
       title: "No connection",
-      message: "We couldn't reach the server. Check your internet connection and try again.",
+      message:
+        "We couldn't reach the server. Check your internet connection and try again.",
       retry: true,
     };
   }

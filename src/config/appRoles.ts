@@ -12,10 +12,15 @@ import type { AppRole, UserProfile } from "../interfaces/user";
  */
 
 /** Roles that unlock the in-app Admin section. */
-const ADMIN_SECTION_ROLES: readonly AppRole[] = ["owner", "support", "developer"];
+const ADMIN_SECTION_ROLES: readonly AppRole[] = [
+  "owner",
+  "support",
+  "developer",
+];
 
-export const getAppRoles = (profile: UserProfile | null | undefined): AppRole[] =>
-  Array.isArray(profile?.appRoles) ? profile!.appRoles! : [];
+export const getAppRoles = (
+  profile: UserProfile | null | undefined,
+): AppRole[] => (Array.isArray(profile?.appRoles) ? profile!.appRoles! : []);
 
 export const hasAppRole = (
   profile: UserProfile | null | undefined,
@@ -28,5 +33,6 @@ export const canAccessAdminSection = (
 ): boolean => getAppRoles(profile).some((r) => ADMIN_SECTION_ROLES.includes(r));
 
 /** Product owner: full Admin section (clients, km, summaries). */
-export const isProductOwner = (profile: UserProfile | null | undefined): boolean =>
-  hasAppRole(profile, "owner");
+export const isProductOwner = (
+  profile: UserProfile | null | undefined,
+): boolean => hasAppRole(profile, "owner");

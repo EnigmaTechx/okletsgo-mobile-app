@@ -27,7 +27,12 @@ export function UpdateRequired({ storeUrl, message, currentBuild }: Props) {
       <AppText variant="title" align="center" style={styles.title}>
         Update required
       </AppText>
-      <AppText variant="body" color="textSecondary" align="center" style={styles.body}>
+      <AppText
+        variant="body"
+        color="textSecondary"
+        align="center"
+        style={styles.body}
+      >
         {message ||
           "This version of OK Let's Go is no longer supported. Please update to keep booking rides."}
       </AppText>

@@ -1,6 +1,11 @@
-import { appVersionLabel, deviceDescription } from "../services/telemetryService";
+import {
+  appVersionLabel,
+  deviceDescription,
+} from "../services/telemetryService";
 
 export const SUPPORT_EMAIL = "support.okletsgo@gmail.com";
+export const PRIVACY_POLICY_URL =
+  "https://sites.google.com/view/ok-lets-go-privacy-policy/home";
 
 /** "+1416*******57" — enough to recognise a number in diagnostics, no more. */
 export const maskPhone = (phone: string): string =>

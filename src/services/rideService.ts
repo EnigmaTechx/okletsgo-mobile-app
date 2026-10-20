@@ -58,11 +58,16 @@ export const getAvailableDrivers = async (): Promise<UserProfile[]> => {
   }
 };
 
-export const updateRideStatus = async (rideId: string, status: string): Promise<void> => {
+export const updateRideStatus = async (
+  rideId: string,
+  status: string,
+): Promise<void> => {
   await updateDoc(doc(db, "rides", rideId), { status });
 };
 
-export const createRideRequest = async (rideData: RideRequest): Promise<string> => {
+export const createRideRequest = async (
+  rideData: RideRequest,
+): Promise<string> => {
   try {
     const docRef = await addDoc(collection(db, "rides"), rideData);
     return docRef.id;
@@ -86,7 +91,10 @@ export const cancelRide = async (
     return response.data;
   } catch (error) {
     console.error("Failed to cancel ride:", error);
-    throw callableError(error, "An unknown error occurred while canceling the ride.");
+    throw callableError(
+      error,
+      "An unknown error occurred while canceling the ride.",
+    );
   }
 };
 
@@ -116,16 +124,22 @@ export const respondToRide = async (
   // Declines go through a function so the hand-off to the next driver (when
   // the rider opted in) happens in one atomic step — the rider never sees a
   // momentary "declined" before the new driver appears.
-  const declineRideFn = httpsCallable<{ rideId: string; reason: string }, DeclineResult>(
-    functions,
-    "declineRide",
-  );
+  const declineRideFn = httpsCallable<
+    { rideId: string; reason: string },
+    DeclineResult
+  >(functions, "declineRide");
   try {
-    const res = await declineRideFn({ rideId, reason: declineReason || "No reason provided" });
+    const res = await declineRideFn({
+      rideId,
+      reason: declineReason || "No reason provided",
+    });
     return res.data;
   } catch (error) {
     console.error("Failed to decline ride:", error);
-    throw callableError(error, "Couldn't decline the request. Please try again.");
+    throw callableError(
+      error,
+      "Couldn't decline the request. Please try again.",
+    );
   }
 };
 
@@ -138,7 +152,10 @@ export const completeRideTransaction = async (ride: RideRequest) => {
     return response.data;
   } catch (error) {
     console.error("Failed to complete ride:", error);
-    throw callableError(error, "An unknown error occurred while completing the ride.");
+    throw callableError(
+      error,
+      "An unknown error occurred while completing the ride.",
+    );
   }
 };
 
@@ -167,7 +184,10 @@ export interface RecentPlace {
  * drop-off), most-recent-first and de-duplicated by address. Powers the
  * "Recent" quick-pick at booking time.
  */
-export const getRecentPlaces = async (clientId: string, max = 6): Promise<RecentPlace[]> => {
+export const getRecentPlaces = async (
+  clientId: string,
+  max = 6,
+): Promise<RecentPlace[]> => {
   try {
     const q = query(
       collection(db, "rides"),
@@ -177,7 +197,10 @@ export const getRecentPlaces = async (clientId: string, max = 6): Promise<Recent
       limit(20),
     );
     const snap = await getDocs(q);
-    return recentPlacesFrom(snap.docs.map((d) => d.data() as RideRequest), max);
+    return recentPlacesFrom(
+      snap.docs.map((d) => d.data() as RideRequest),
+      max,
+    );
   } catch (err) {
     console.warn("Failed to load recent places:", err);
     return [];
@@ -185,12 +208,20 @@ export const getRecentPlaces = async (clientId: string, max = 6): Promise<Recent
 };
 
 /** Pure: de-duplicated pickup + destination addresses, newest ride first. */
-export const recentPlacesFrom = (rides: RideRequest[], max = 6): RecentPlace[] => {
+export const recentPlacesFrom = (
+  rides: RideRequest[],
+  max = 6,
+): RecentPlace[] => {
   const seen = new Set<string>();
   const out: RecentPlace[] = [];
   for (const r of rides) {
     for (const pt of [r.pickup, r.destination]) {
-      if (!pt?.address || typeof pt.lat !== "number" || typeof pt.lng !== "number") continue;
+      if (
+        !pt?.address ||
+        typeof pt.lat !== "number" ||
+        typeof pt.lng !== "number"
+      )
+        continue;
       const key = pt.address.trim().toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
@@ -206,7 +237,9 @@ export const recentPlacesFrom = (rides: RideRequest[], max = 6): RecentPlace[] =
  * is recent enough to be worth prompting for, so the home screen can nudge them
  * (Uber/Lyft-style lazy prompt). Returns null if there's nothing fresh to rate.
  */
-export const getPendingRatingRide = async (clientId: string): Promise<RideRequest | null> => {
+export const getPendingRatingRide = async (
+  clientId: string,
+): Promise<RideRequest | null> => {
   try {
     const q = query(
       collection(db, "rides"),
@@ -255,21 +288,27 @@ export const requestRideTimeChange = async (
   rideId: string,
   newTime: string,
 ): Promise<{ pendingApproval: boolean }> => {
-  const fn = httpsCallable<{ rideId: string; newTime: string }, { pendingApproval?: boolean }>(
-    functions,
-    "requestRideTimeChange",
-  );
+  const fn = httpsCallable<
+    { rideId: string; newTime: string },
+    { pendingApproval?: boolean }
+  >(functions, "requestRideTimeChange");
   const res = await fn({ rideId, newTime });
   return { pendingApproval: !!res.data?.pendingApproval };
 };
 
 /** Assigned driver approves or declines a pending pickup-time change. */
-export const reviewRideTimeChange = async (rideId: string, approve: boolean): Promise<void> => {
+export const reviewRideTimeChange = async (
+  rideId: string,
+  approve: boolean,
+): Promise<void> => {
   const fn = httpsCallable(functions, "reviewRideTimeChange");
   await fn({ rideId, approve });
 };
 
-export const incrementClientDebt = async (clientId: string, amount: number): Promise<void> => {
+export const incrementClientDebt = async (
+  clientId: string,
+  amount: number,
+): Promise<void> => {
   await updateDoc(doc(db, "users", clientId), { debt: increment(amount) });
 };
 

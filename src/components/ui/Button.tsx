@@ -74,7 +74,12 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={label} />
       ) : (
-        <AppText style={[variant === "ghost" ? typography.bodyStrong : typography.button, { color: label }]}>
+        <AppText
+          style={[
+            variant === "ghost" ? typography.bodyStrong : typography.button,
+            { color: label },
+          ]}
+        >
           {title}
         </AppText>
       )}

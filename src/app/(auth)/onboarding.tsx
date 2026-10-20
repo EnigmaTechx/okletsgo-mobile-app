@@ -1,5 +1,12 @@
 import React, { useRef, useState } from "react";
-import { FlatList, Image, type ImageSourcePropType, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  FlatList,
+  Image,
+  type ImageSourcePropType,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Screen } from "../../components/ui/Screen";
 import { AppText } from "../../components/ui/AppText";
@@ -73,11 +80,20 @@ export default function Onboarding() {
         pagingEnabled
         bounces={false}
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
+        onMomentumScrollEnd={(e) =>
+          setIndex(Math.round(e.nativeEvent.contentOffset.x / width))
+        }
         renderItem={({ item }) => (
           <View style={[styles.slide, { width }]}>
-            <View style={[styles.art, { backgroundColor: colors.surfaceRaised }]}>
-              <Image source={item.image} resizeMode="cover" style={styles.photo} accessible={false} />
+            <View
+              style={[styles.art, { backgroundColor: colors.surfaceRaised }]}
+            >
+              <Image
+                source={item.image}
+                resizeMode="cover"
+                style={styles.photo}
+                accessible={false}
+              />
               <View style={styles.logoBadge}>
                 <Logo width={150} />
               </View>
@@ -102,13 +118,19 @@ export default function Onboarding() {
             key={s.key}
             style={[
               styles.dot,
-              { backgroundColor: i === index ? colors.primary : colors.border, width: i === index ? 22 : 8 },
+              {
+                backgroundColor: i === index ? colors.primary : colors.border,
+                width: i === index ? 22 : 8,
+              },
             ]}
           />
         ))}
       </View>
       <View style={styles.actions}>
-        <Button title={index === SLIDES.length - 1 ? "Get started" : "Next"} onPress={next} />
+        <Button
+          title={index === SLIDES.length - 1 ? "Get started" : "Next"}
+          onPress={next}
+        />
         <Button title="Skip" variant="ghost" onPress={finish} />
       </View>
     </Screen>
@@ -124,7 +146,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.xxl,
     overflow: "hidden",
   },
-  photo: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: undefined, height: undefined },
+  photo: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: undefined,
+    height: undefined,
+  },
   logoBadge: {
     position: "absolute",
     left: spacing.lg,
@@ -136,7 +166,16 @@ const styles = StyleSheet.create({
   },
   copy: { paddingHorizontal: 28, paddingTop: 26, gap: spacing.md },
   heading: { marginTop: spacing.xs },
-  dots: { flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: spacing.xl },
+  dots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: spacing.xl,
+  },
   dot: { height: 8, borderRadius: 4 },
-  actions: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.sm },
+  actions: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
 });

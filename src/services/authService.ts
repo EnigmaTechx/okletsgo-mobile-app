@@ -33,7 +33,8 @@ export interface PhoneConfirmation {
 
 let currentConfirmation: PhoneConfirmation | null = null;
 
-export const getConfirmationResult = (): PhoneConfirmation | null => currentConfirmation;
+export const getConfirmationResult = (): PhoneConfirmation | null =>
+  currentConfirmation;
 export const setConfirmationResult = (c: PhoneConfirmation | null) => {
   currentConfirmation = c;
 };
@@ -64,8 +65,15 @@ export const getOtpSession = (): OtpSession | null => {
   try {
     const raw = SecureStore.getItem(OTP_SESSION_KEY);
     if (!raw) return null;
-    const s = JSON.parse(raw) as { phone?: string; verificationId?: string; ts?: number };
-    if (!s?.verificationId || Date.now() - (s.ts || 0) > OTP_SESSION_MAX_AGE_MS) {
+    const s = JSON.parse(raw) as {
+      phone?: string;
+      verificationId?: string;
+      ts?: number;
+    };
+    if (
+      !s?.verificationId ||
+      Date.now() - (s.ts || 0) > OTP_SESSION_MAX_AGE_MS
+    ) {
       return null;
     }
     return { phone: s.phone || "", verificationId: s.verificationId };
@@ -116,7 +124,10 @@ export const clearRegistrationActive = () => {
 
 // ─── Sending and confirming the code ────────────────────────────────────────
 
-const wrapNative = (phone: string, result: ConfirmationResult): PhoneConfirmation => {
+const wrapNative = (
+  phone: string,
+  result: ConfirmationResult,
+): PhoneConfirmation => {
   const verificationId = result.verificationId;
   const wrapped: PhoneConfirmation = {
     verificationId,
@@ -134,7 +145,9 @@ const wrapNative = (phone: string, result: ConfirmationResult): PhoneConfirmatio
 };
 
 /** Rebuild an in-memory confirmation from a persisted verificationId. */
-export const rebuildConfirmationResult = (verificationId: string): PhoneConfirmation => {
+export const rebuildConfirmationResult = (
+  verificationId: string,
+): PhoneConfirmation => {
   const rebuilt: PhoneConfirmation = {
     verificationId,
     confirm: async (smsCode: string) => {
@@ -151,7 +164,9 @@ export const rebuildConfirmationResult = (verificationId: string): PhoneConfirma
  * Resolves once the code is on its way; rejects with a Firebase auth error
  * that `describeSendCodeError` turns into plain words.
  */
-export const sendOtp = async (phoneNumber: string): Promise<PhoneConfirmation> => {
+export const sendOtp = async (
+  phoneNumber: string,
+): Promise<PhoneConfirmation> => {
   const result = await signInWithPhoneNumber(auth, phoneNumber);
   return wrapNative(phoneNumber, result);
 };
@@ -168,7 +183,9 @@ interface CreateProfileData {
   photoUrl?: string;
 }
 
-export const checkUserProfile = async (uid: string): Promise<UserProfile | null> => {
+export const checkUserProfile = async (
+  uid: string,
+): Promise<UserProfile | null> => {
   const userDoc = await getDoc(doc(db, "users", uid));
   if (userDoc.exists()) {
     return userDoc.data() as UserProfile;

@@ -40,12 +40,10 @@ export const FEATURES = {
 // ============================================================================
 
 export type FeatureKey =
-  | "payment"
-  | "driver_earnings"
-  | "driver_payouts"
-  | "book_for_others";
+  "payment" | "driver_earnings" | "driver_payouts" | "book_for_others";
 
-export type FeatureAudience = "none" | "all" | "clients" | "drivers" | "selected";
+export type FeatureAudience =
+  "none" | "all" | "clients" | "drivers" | "selected";
 
 export const FEATURE_AUDIENCES: readonly FeatureAudience[] = [
   "none",
@@ -85,7 +83,7 @@ export const FEATURE_CATALOGUE: readonly FeatureDefinition[] = [
     key: "payment",
     label: "Payment",
     description:
-      "The Payment page. Until card payments go live it shows a \"Card Payments Coming Soon\" notice.",
+      'The Payment page. Until card payments go live it shows a "Card Payments Coming Soon" notice.',
     surface: "Side menu → Payment",
     roles: ["client", "driver"],
   },
@@ -145,7 +143,9 @@ export function isFeatureVisible(
     case "drivers":
       return profile.role === "driver";
     case "selected":
-      return Array.isArray(state.userIds) && state.userIds.includes(profile.uid);
+      return (
+        Array.isArray(state.userIds) && state.userIds.includes(profile.uid)
+      );
     default:
       // "none", missing, or an unrecognised value → hidden.
       return false;

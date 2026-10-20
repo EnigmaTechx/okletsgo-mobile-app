@@ -57,8 +57,20 @@ describe("validateVehicleForm", () => {
   });
 
   it("names every invalid field", () => {
-    const e = validateVehicleForm({ make: "", model: "!", color: "9", plateNumber: "A", licenseNumber: "123" });
-    expect(Object.keys(e).sort()).toEqual(["color", "licenseNumber", "make", "model", "plateNumber"]);
+    const e = validateVehicleForm({
+      make: "",
+      model: "!",
+      color: "9",
+      plateNumber: "A",
+      licenseNumber: "123",
+    });
+    expect(Object.keys(e).sort()).toEqual([
+      "color",
+      "licenseNumber",
+      "make",
+      "model",
+      "plateNumber",
+    ]);
   });
 
   it("title-cases free text for storage", () => {

@@ -4,7 +4,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const KEY = "okletsgo.hasSeenOnboarding";
 
 /** Whether the three welcome slides have been dismissed on this device. */
-export function useOnboardingSeen(): { seen: boolean | null; markSeen: () => void } {
+export function useOnboardingSeen(): {
+  seen: boolean | null;
+  markSeen: () => void;
+} {
   const [seen, setSeen] = useState<boolean | null>(null);
 
   useEffect(() => {

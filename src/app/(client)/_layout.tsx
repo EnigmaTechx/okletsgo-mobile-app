@@ -14,28 +14,36 @@ export default function ClientLayout() {
         name="index"
         options={{
           title: "Book",
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="car-outline" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="car-outline" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="trips"
         options={{
           title: "Trips",
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="time-outline" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="time-outline" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="rewards"
         options={{
           title: "Rewards",
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="gift-outline" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="gift-outline" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: "Account",
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="person-outline" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="person-outline" color={color} focused={focused} />
+          ),
         }}
       />
     </Tabs>

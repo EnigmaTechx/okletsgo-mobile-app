@@ -38,7 +38,10 @@ export function Screen({
   const inner = [padded ? styles.padded : null, contentStyle];
 
   return (
-    <SafeAreaView edges={edges} style={[styles.root, { backgroundColor: colors.background }, style]}>
+    <SafeAreaView
+      edges={edges}
+      style={[styles.root, { backgroundColor: colors.background }, style]}
+    >
       {scroll ? (
         <KeyboardAwareScrollView
           bottomOffset={spacing.xxl}

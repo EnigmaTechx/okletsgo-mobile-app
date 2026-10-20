@@ -13,7 +13,11 @@ export function LoadingScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <Logo width={220} />
-      <ActivityIndicator size="large" color={colors.primary} style={styles.spinner} />
+      <ActivityIndicator
+        size="large"
+        color={colors.primary}
+        style={styles.spinner}
+      />
     </View>
   );
 }

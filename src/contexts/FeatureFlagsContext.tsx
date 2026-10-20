@@ -1,8 +1,18 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { doc, onSnapshot } from "@react-native-firebase/firestore";
 import { db } from "../services/firebase";
 import { useAuth } from "./AuthContext";
-import { type FeatureFlagsDoc, type FeatureKey, isFeatureVisible } from "../config/features";
+import {
+  type FeatureFlagsDoc,
+  type FeatureKey,
+  isFeatureVisible,
+} from "../config/features";
 
 /**
  * Live view of the public `config/features` document (see
@@ -32,7 +42,9 @@ const FeatureFlagsContext = createContext<FeatureFlagsContextType>({
 
 export const useFeatureFlags = () => useContext(FeatureFlagsContext);
 
-export const FeatureFlagsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const FeatureFlagsProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { userProfile } = useAuth();
   const [flags, setFlags] = useState<FeatureFlagsDoc | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -45,7 +57,10 @@ export const FeatureFlagsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setLoaded(true);
       },
       (err) => {
-        console.warn("[featureFlags] config/features unavailable — all hidden", err);
+        console.warn(
+          "[featureFlags] config/features unavailable — all hidden",
+          err,
+        );
         setFlags(null);
         setLoaded(true);
       },
@@ -62,5 +77,9 @@ export const FeatureFlagsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [flags, loaded, userProfile],
   );
 
-  return <FeatureFlagsContext.Provider value={value}>{children}</FeatureFlagsContext.Provider>;
+  return (
+    <FeatureFlagsContext.Provider value={value}>
+      {children}
+    </FeatureFlagsContext.Provider>
+  );
 };

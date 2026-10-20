@@ -7,7 +7,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { onAuthStateChanged, signOut, type User } from "@react-native-firebase/auth";
+import {
+  onAuthStateChanged,
+  signOut,
+  type User,
+} from "@react-native-firebase/auth";
 import {
   deleteField,
   doc,
@@ -47,7 +51,9 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);

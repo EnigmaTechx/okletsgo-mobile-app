@@ -74,7 +74,8 @@ let testIdsCache: { ids: Set<string>; at: number } | null = null;
 
 /** User IDs flagged isTestAccount, cached for a minute per load burst. */
 export const fetchTestAccountIds = async (): Promise<Set<string>> => {
-  if (testIdsCache && Date.now() - testIdsCache.at < 60_000) return testIdsCache.ids;
+  if (testIdsCache && Date.now() - testIdsCache.at < 60_000)
+    return testIdsCache.ids;
   const snap = await getDocs(
     query(collection(db, "users"), where("isTestAccount", "==", true)),
   );
@@ -101,32 +102,42 @@ export const fetchAdminOverview = async (): Promise<AdminOverview> => {
   const weekStart = startOfWeek(now).getTime();
   const monthStartIso = startOfMonth(now).toISOString();
 
-  const [testIds, clientsSnap, testClientsSnap, monthSnap, recentSnap] = await Promise.all([
-    fetchTestAccountIds(),
-    getCountFromServer(query(users, where("role", "==", "client"))),
-    getCountFromServer(
-      query(users, where("role", "==", "client"), where("isTestAccount", "==", true)),
-    ),
-    // completedAt is set by the completeRide function on every completion, so
-    // every completed ride has it. Needs the (status, completedAt) index.
-    getDocs(
-      query(
-        rides,
-        where("status", "==", "completed"),
-        where("completedAt", ">=", monthStartIso),
+  const [testIds, clientsSnap, testClientsSnap, monthSnap, recentSnap] =
+    await Promise.all([
+      fetchTestAccountIds(),
+      getCountFromServer(query(users, where("role", "==", "client"))),
+      getCountFromServer(
+        query(
+          users,
+          where("role", "==", "client"),
+          where("isTestAccount", "==", true),
+        ),
       ),
-    ),
-    // Extra so we still have 3 after dropping sandbox rides.
-    getDocs(query(rides, orderBy("createdAt", "desc"), limit(12))),
-  ]);
+      // completedAt is set by the completeRide function on every completion, so
+      // every completed ride has it. Needs the (status, completedAt) index.
+      getDocs(
+        query(
+          rides,
+          where("status", "==", "completed"),
+          where("completedAt", ">=", monthStartIso),
+        ),
+      ),
+      // Extra so we still have 3 after dropping sandbox rides.
+      getDocs(query(rides, orderBy("createdAt", "desc"), limit(12))),
+    ]);
 
-  const month = withIds(monthSnap.docs).filter((r) => !isSandboxRide(r, testIds));
+  const month = withIds(monthSnap.docs).filter(
+    (r) => !isSandboxRide(r, testIds),
+  );
   const week = month.filter(
     (r) => new Date(r.completedAt ?? "").getTime() >= weekStart,
   );
 
   return {
-    riders: Math.max(0, clientsSnap.data().count - testClientsSnap.data().count),
+    riders: Math.max(
+      0,
+      clientsSnap.data().count - testClientsSnap.data().count,
+    ),
     ridesThisWeek: week.length,
     ridesThisMonth: month.length,
     kmThisMonth: month.reduce((sum, r) => sum + rideKm(r), 0),
@@ -163,7 +174,8 @@ export const fetchRecentRides = async (
   ]);
   return {
     rides: withIds(snap.docs).filter((r) => !isSandboxRide(r, testIds)),
-    cursor: snap.docs.length === RIDES_PAGE ? snap.docs[snap.docs.length - 1] : null,
+    cursor:
+      snap.docs.length === RIDES_PAGE ? snap.docs[snap.docs.length - 1] : null,
   };
 };
 
@@ -195,12 +207,22 @@ export interface RidesSummary {
   bars: SummaryBar[];
 }
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** When a completed ride counts: completion time, falling back to pickup. */
 export const completedTime = (r: RideRequest): number =>
-  new Date(r.completedAt ?? r.tripCompletedAt ?? r.scheduledTime ?? "").getTime();
+  new Date(
+    r.completedAt ?? r.tripCompletedAt ?? r.scheduledTime ?? "",
+  ).getTime();
 
 /** Start of the period — Monday for "week", the 1st for "month", and the 1st
  *  of the month five months back for "all" (six calendar months). */
@@ -246,7 +268,11 @@ export const bucketByPeriod = <T>(
   }
   if (period === "month") {
     const start = startOfMonth(now);
-    const daysInMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+    const daysInMonth = new Date(
+      start.getFullYear(),
+      start.getMonth() + 1,
+      0,
+    ).getDate();
     const weeks = Math.ceil(daysInMonth / 7);
     const sums = new Array<number>(weeks).fill(0);
     items.forEach((it) => {
@@ -275,7 +301,9 @@ export const bucketByPeriod = <T>(
     const t = timeOf(it);
     if (Number.isNaN(t)) return;
     const d = new Date(t);
-    const m = months.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`);
+    const m = months.find(
+      (x) => x.key === `${d.getFullYear()}-${d.getMonth()}`,
+    );
     if (m) m.value += weight(it);
   });
   return {
@@ -363,8 +391,12 @@ export const fetchRidesSummary = async (
   ]);
 
   const testIds = await fetchTestAccountIds();
-  const completed = withIds(completedSnap.docs).filter((r) => !isSandboxRide(r, testIds));
-  const cancelled = withIds(cancelledSnap.docs).filter((r) => !isSandboxRide(r, testIds));
+  const completed = withIds(completedSnap.docs).filter(
+    (r) => !isSandboxRide(r, testIds),
+  );
+  const cancelled = withIds(cancelledSnap.docs).filter(
+    (r) => !isSandboxRide(r, testIds),
+  );
 
   return buildSummary(period, completed, cancelled.length, now);
 };
@@ -419,7 +451,9 @@ export const fetchClientDetail = async (
     getCountFromServer(query(rides, ...completedFor)),
     // Served by the existing (clientId, status, createdAt desc) index. A few
     // extra so a ride with a test driver can be dropped and still leave 5.
-    getDocs(query(rides, ...completedFor, orderBy("createdAt", "desc"), limit(8))),
+    getDocs(
+      query(rides, ...completedFor, orderBy("createdAt", "desc"), limit(8)),
+    ),
   ]);
 
   if (!userSnap.exists()) return null;

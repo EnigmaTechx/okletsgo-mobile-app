@@ -1,4 +1,9 @@
-import { doc, getDoc, setDoc, onSnapshot } from "@react-native-firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 import { db } from "./firebase";
 
 // A client's saved address (Home, Work, "Mom's House", …). Stored as an array
@@ -60,13 +65,20 @@ export async function addSavedPlace(
   if (current.length >= MAX_SAVED_PLACES) {
     throw new Error(`You can save up to ${MAX_SAVED_PLACES} addresses.`);
   }
-  const place: SavedPlace = { ...input, id: newId(), createdAt: new Date().toISOString() };
+  const place: SavedPlace = {
+    ...input,
+    id: newId(),
+    createdAt: new Date().toISOString(),
+  };
   await writePlaces(uid, [...current, place]);
   return place;
 }
 
 /** Re-insert a previously-removed place verbatim (for undo). */
-export async function restoreSavedPlace(uid: string, place: SavedPlace): Promise<void> {
+export async function restoreSavedPlace(
+  uid: string,
+  place: SavedPlace,
+): Promise<void> {
   const current = await readPlaces(uid);
   if (current.some((p) => p.id === place.id)) return;
   await writePlaces(uid, [...current, place]);
@@ -79,17 +91,26 @@ export async function updateSavedPlace(
   patch: Partial<Omit<SavedPlace, "id" | "createdAt">>,
 ): Promise<void> {
   const current = await readPlaces(uid);
-  await writePlaces(uid, current.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  await writePlaces(
+    uid,
+    current.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+  );
 }
 
 /** Remove a saved place by id. */
 export async function removeSavedPlace(uid: string, id: string): Promise<void> {
   const current = await readPlaces(uid);
-  await writePlaces(uid, current.filter((p) => p.id !== id));
+  await writePlaces(
+    uid,
+    current.filter((p) => p.id !== id),
+  );
 }
 
 /** Fetch a single saved place by id (for the edit screen). */
-export async function getSavedPlace(uid: string, id: string): Promise<SavedPlace | null> {
+export async function getSavedPlace(
+  uid: string,
+  id: string,
+): Promise<SavedPlace | null> {
   const current = await readPlaces(uid);
   return current.find((p) => p.id === id) ?? null;
 }

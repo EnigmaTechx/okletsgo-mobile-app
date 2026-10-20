@@ -21,7 +21,8 @@ const ride = (over: Partial<RideRequest>): RideRequest =>
 const at = (y: number, m: number, d: number, h = 10) =>
   new Date(y, m, d, h).toISOString();
 
-const pay = (...fares: number[]) => fares.reduce((s, f) => s + driverPayout(f), 0);
+const pay = (...fares: number[]) =>
+  fares.reduce((s, f) => s + driverPayout(f), 0);
 
 describe("rideEarned", () => {
   it("prefers the stored payout, else the driver's share", () => {
@@ -38,7 +39,12 @@ describe("buildDriverStats", () => {
   const rides: RideRequest[] = [
     // this week (Mon 14th, Tue 15th)
     ride({ completedAt: at(2026, 8, 14), estimatedPrice: 40, distance: 8 }),
-    ride({ completedAt: at(2026, 8, 15), estimatedPrice: 60, actualDistanceKm: 5, distance: 12 }),
+    ride({
+      completedAt: at(2026, 8, 15),
+      estimatedPrice: 60,
+      actualDistanceKm: 5,
+      distance: 12,
+    }),
     // earlier this month (Sep 3rd) — "Wk 1"
     ride({ completedAt: at(2026, 8, 3), estimatedPrice: 100, distance: 20 }),
     // a no-show fee this month (Sep 10th) — "Wk 2"
@@ -60,7 +66,15 @@ describe("buildDriverStats", () => {
     expect(s.km).toBe(8 + 5); // actualDistanceKm wins when set
     expect(s.earned).toBeCloseTo(pay(40, 60), 2);
     expect(s.perRide).toBeCloseTo(pay(40, 60) / 2, 2);
-    expect(s.bars.map((b) => b.label)).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(s.bars.map((b) => b.label)).toEqual([
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun",
+    ]);
     expect(s.bars[0].value).toBeCloseTo(pay(40), 2);
     expect(s.bars[1].value).toBeCloseTo(pay(60), 2);
     expect(s.bars[2].value).toBe(0);

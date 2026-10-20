@@ -14,28 +14,40 @@ export default function DriverLayout() {
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="home-outline" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="home-outline" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="trips"
         options={{
           title: "Trips",
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="car-outline" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="car-outline" color={color} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="earnings"
         options={{
           title: "Earnings",
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="bar-chart-outline" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon
+              name="bar-chart-outline"
+              color={color}
+              focused={focused}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: "Account",
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="person-outline" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name="person-outline" color={color} focused={focused} />
+          ),
         }}
       />
     </Tabs>

@@ -30,7 +30,8 @@ export const formatPlate = (raw: string): string => {
   return m ? `${m[1]} ${m[2]}` : p;
 };
 
-export const isValidPlate = (raw: string): boolean => PLATE_RE.test(normalizePlate(raw));
+export const isValidPlate = (raw: string): boolean =>
+  PLATE_RE.test(normalizePlate(raw));
 
 /** Upper-case letter + digits only, capped at the 15 characters of a licence. */
 export const normalizeLicence = (raw: string): string => {
@@ -44,14 +45,19 @@ export const normalizeLicence = (raw: string): string => {
 /** "A123456789012 34" → "A1234-56789-01234" (dashes appear as the driver types). */
 export const formatLicence = (raw: string): string => {
   const s = normalizeLicence(raw);
-  const parts = [s.slice(0, 5), s.slice(5, 10), s.slice(10, 15)].filter(Boolean);
+  const parts = [s.slice(0, 5), s.slice(5, 10), s.slice(10, 15)].filter(
+    Boolean,
+  );
   return parts.join("-");
 };
 
-export const isValidLicence = (raw: string): boolean => LICENCE_RE.test(normalizeLicence(raw));
+export const isValidLicence = (raw: string): boolean =>
+  LICENCE_RE.test(normalizeLicence(raw));
 
-export const isValidVehicleName = (raw: string): boolean => NAME_RE.test(raw.trim());
-export const isValidColour = (raw: string): boolean => COLOUR_RE.test(raw.trim());
+export const isValidVehicleName = (raw: string): boolean =>
+  NAME_RE.test(raw.trim());
+export const isValidColour = (raw: string): boolean =>
+  COLOUR_RE.test(raw.trim());
 
 /** Title-case a free-text field for storage: "toyota camry" → "Toyota Camry". */
 export const titleCase = (raw: string): string =>
@@ -80,8 +86,10 @@ export const validateVehicleForm = (v: {
   if (!isValidVehicleName(v.make)) e.make = "Enter the make, e.g. Toyota.";
   if (!isValidVehicleName(v.model)) e.model = "Enter the model, e.g. Camry.";
   if (!isValidColour(v.color)) e.color = "Enter the colour, e.g. Black.";
-  if (!isValidPlate(v.plateNumber)) e.plateNumber = "Plates are 2 to 8 letters and digits, e.g. ABCD 123.";
+  if (!isValidPlate(v.plateNumber))
+    e.plateNumber = "Plates are 2 to 8 letters and digits, e.g. ABCD 123.";
   if (!isValidLicence(v.licenseNumber))
-    e.licenseNumber = "Ontario licence numbers are one letter and 14 digits, e.g. A1234-56789-01234.";
+    e.licenseNumber =
+      "Ontario licence numbers are one letter and 14 digits, e.g. A1234-56789-01234.";
   return e;
 };

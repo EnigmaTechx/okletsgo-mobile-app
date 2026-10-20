@@ -28,7 +28,9 @@ export interface PlacePrediction {
  * as ", ON" (e.g. "Toronto, ON, Canada"), and place-level results spell out
  * "Ontario" — we accept either.
  */
-export function isOntarioPrediction(p: Pick<PlacePrediction, "description">): boolean {
+export function isOntarioPrediction(
+  p: Pick<PlacePrediction, "description">,
+): boolean {
   const desc = p.description || "";
   return /,\s*ON\b/i.test(desc) || /\bontario\b/i.test(desc);
 }
