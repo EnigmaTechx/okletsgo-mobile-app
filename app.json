@@ -26,7 +26,12 @@
         "backgroundImage": "./assets/images/android-icon-background.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 35
+      "versionCode": 35,
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -35,6 +40,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "OK Let's Go uses your location to suggest your pickup point and to show you on the map while a driver is on the way.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       [

@@ -48,3 +48,6 @@ GoogleService-Info.plist
 
 # EAS / Expo caches
 .eas/
+
+# local env (secrets); keep .env.example
+.env

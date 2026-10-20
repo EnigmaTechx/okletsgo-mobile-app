@@ -181,7 +181,14 @@ export function AccountScreen() {
             detail={vehicleLabel ?? "Not set"}
             value={vehicle?.plateNumber}
           />
-        ) : null}
+        ) : (
+          <MenuRow
+            icon="bookmark-outline"
+            label="Saved addresses"
+            detail="Home, work and the places you go often"
+            onPress={() => router.push("/(ride)/places")}
+          />
+        )}
       </View>
 
       <SectionLabel text="Preferences" />

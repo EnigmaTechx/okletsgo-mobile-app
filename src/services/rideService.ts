@@ -4,12 +4,17 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   getDocs,
+  getDoc,
   getCountFromServer,
   addDoc,
   doc,
+  onSnapshot,
   updateDoc,
   increment,
+  type DocumentSnapshot,
+  type QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
 import { httpsCallable } from "@react-native-firebase/functions";
 import { db, functions } from "./firebase";
@@ -321,3 +326,158 @@ export const updateDriverLocation = async (
     driverLocation: { lat, lng, updatedAt: new Date().toISOString() },
   });
 };
+
+// ─── Phase 2: rider listeners and paging ────────────────────────────────────
+
+/** Statuses the rider's home treats as live or upcoming. */
+export const CLIENT_OPEN_STATUSES: RideRequest["status"][] = [
+  "pending",
+  "accepted",
+  "heading_to_pickup",
+  "arrived",
+  "in_progress",
+];
+
+/** Statuses during which the driver is actively on the ride. */
+export const LIVE_STATUSES: RideRequest["status"][] = [
+  "heading_to_pickup",
+  "arrived",
+  "in_progress",
+];
+
+const toRide = (d: DocumentSnapshot): RideRequest =>
+  ({ id: d.id, ...(d.data() as object) }) as RideRequest;
+
+/** Pure: soonest pickup first. */
+export const sortByScheduledTime = (rides: RideRequest[]): RideRequest[] =>
+  [...rides].sort(
+    (a, b) =>
+      new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime(),
+  );
+
+/**
+ * Live list of the rider's open rides (pending through in-progress), soonest
+ * first. The callback also receives the ids that have just left the list, so
+ * the home screen can look up why (declined, cancelled, expired).
+ */
+export function subscribeClientOpenRides(
+  uid: string,
+  onChange: (rides: RideRequest[], departedIds: string[]) => void,
+  onError?: (err: unknown) => void,
+): () => void {
+  let previous = new Set<string>();
+  const q = query(
+    collection(db, "rides"),
+    where("clientId", "==", uid),
+    where("status", "in", CLIENT_OPEN_STATUSES),
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rides = sortByScheduledTime(snap.docs.map(toRide));
+      const current = new Set(rides.map((r) => r.id as string));
+      const departed = [...previous].filter((id) => !current.has(id));
+      previous = current;
+      onChange(rides, departed);
+    },
+    (err) => {
+      console.error("Open rides listener failed:", err);
+      onError?.(err);
+    },
+  );
+}
+
+/** Live view of one ride; null once it no longer exists. */
+export function subscribeRide(
+  rideId: string,
+  onChange: (ride: RideRequest | null) => void,
+  onError?: (err: unknown) => void,
+): () => void {
+  return onSnapshot(
+    doc(db, "rides", rideId),
+    (snap) => onChange(snap.exists() ? toRide(snap) : null),
+    (err) => {
+      console.error("Ride listener failed:", err);
+      onError?.(err);
+    },
+  );
+}
+
+export async function fetchRide(rideId: string): Promise<RideRequest | null> {
+  const snap = await getDoc(doc(db, "rides", rideId));
+  return snap.exists() ? toRide(snap) : null;
+}
+
+export type HistoryTab = "all" | "completed" | "cancelled";
+export const HISTORY_PAGE_SIZE = 15;
+
+export interface HistoryPage {
+  rides: RideRequest[];
+  /** Pass back to fetch the next page; null when there is none. */
+  cursor: QueryDocumentSnapshot | null;
+  hasMore: boolean;
+}
+
+/** One page of past rides (completed / cancelled), newest booking first. */
+export async function fetchRideHistoryPage(
+  uid: string,
+  role: "client" | "driver",
+  tab: HistoryTab,
+  cursor: QueryDocumentSnapshot | null,
+): Promise<HistoryPage> {
+  const statuses =
+    tab === "completed"
+      ? ["completed"]
+      : tab === "cancelled"
+        ? ["cancelled"]
+        : ["completed", "cancelled"];
+  const base = query(
+    collection(db, "rides"),
+    where(role === "client" ? "clientId" : "driverId", "==", uid),
+    where("status", "in", statuses),
+    orderBy("createdAt", "desc"),
+    limit(HISTORY_PAGE_SIZE),
+  );
+  const q = cursor ? query(base, startAfter(cursor)) : base;
+  const snap = await getDocs(q);
+  const rides = snap.docs.map(toRide);
+  return {
+    rides,
+    cursor: snap.docs[snap.docs.length - 1] ?? null,
+    hasMore: snap.docs.length === HISTORY_PAGE_SIZE,
+  };
+}
+
+/**
+ * Drivers a rider may book right now: online, and not a sandbox driver
+ * unless the rider is a sandbox account too. Drivers with another ride
+ * nearby are deliberately kept: the app runs on driver discretion.
+ */
+export async function listBookableDrivers(
+  isTestClient: boolean,
+): Promise<UserProfile[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, "users"),
+      where("role", "==", "driver"),
+      where("isOnline", "==", true),
+    ),
+  );
+  return snap.docs
+    .map((d) => d.data() as UserProfile)
+    .filter((d) => !d.isTestAccount || isTestClient);
+}
+
+/** Re-check at confirmation time that the chosen driver is still online. */
+export async function isDriverOnline(uid: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() && (snap.data() as UserProfile).isOnline === true;
+}
+
+/** The rider's profile fields used to fill a booking. */
+export async function fetchUserProfile(
+  uid: string,
+): Promise<UserProfile | null> {
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() ? (snap.data() as UserProfile) : null;
+}
