@@ -66,5 +66,7 @@ shared roadmap doc; per-phase notes are in `docs/`.
 - **Before committing:** `npx expo lint --max-warnings=0`, `npx tsc --noEmit`,
   `npx jest`. Native behaviour (phone auth, push, location) can only be checked
   on a device.
-- **Identity.** `com.enigmatech.rideshare` on both platforms; the version and
-  build numbers continue from the Ionic app (last Ionic build: 33).
+- **Identity.** `com.enigmatech.rideshare` on both platforms. `version`,
+  `android.versionCode` and `ios.buildNumber` live in `app.json` and continue
+  from the Ionic app (last Ionic build: 33); bump both build numbers together
+  for every store submission.
