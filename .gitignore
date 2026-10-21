@@ -51,3 +51,4 @@ GoogleService-Info.plist
 
 # local env (secrets); keep .env.example
 .env
+.env.local
