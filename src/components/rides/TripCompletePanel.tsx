@@ -142,7 +142,15 @@ export function TripCompletePanel({ ride, riderFirstName, onDone }: Props) {
       </View>
 
       <Button title="Submit" onPress={submit} disabled={rating < 1} />
-      <Button title="Skip for now" variant="ghost" onPress={() => onDone()} />
+      <Button
+        title="Skip for now"
+        variant="ghost"
+        onPress={() => {
+          // Skipping here is an answer: Home must not ask again this session.
+          sessionFlag.set(ratingNudgedKey(ride.id as string));
+          onDone();
+        }}
+      />
     </View>
   );
 }

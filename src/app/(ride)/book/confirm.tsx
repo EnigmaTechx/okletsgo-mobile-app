@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   StyleSheet,
@@ -261,18 +260,20 @@ export default function BookConfirm() {
                 <View style={styles.inline}>
                   <Ionicons
                     name="pricetag-outline"
-                    size={16}
+                    size={18}
                     color={colors.primary}
                   />
-                  <AppText variant="smallStrong">Have a promo code?</AppText>
+                  <AppText variant="body" color="primary">
+                    Have a promo code?
+                  </AppText>
                 </View>
                 <View style={styles.inline}>
-                  <AppText variant="smallStrong" color="primary">
+                  <AppText variant="bodyStrong" color="primary">
                     {promoOpen ? "Close" : "Add"}
                   </AppText>
                   <Ionicons
                     name={promoOpen ? "chevron-up" : "chevron-down"}
-                    size={16}
+                    size={18}
                     color={colors.primary}
                   />
                 </View>
@@ -380,14 +381,6 @@ export default function BookConfirm() {
         disabled={booking || booked}
         style={styles.cta}
       />
-      {booking ? (
-        <View style={styles.inlineCenter}>
-          <ActivityIndicator color={colors.primary} />
-          <AppText variant="small" color="textMuted">
-            Booking your ride…
-          </AppText>
-        </View>
-      ) : null}
     </Screen>
   );
 }
@@ -432,13 +425,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   inline: { flexDirection: "row", alignItems: "center", gap: 6 },
-  inlineCenter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
   divided: { paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
   carPhoto: { width: 60, height: 60, borderRadius: radius.sm },
   costs: { gap: spacing.sm },

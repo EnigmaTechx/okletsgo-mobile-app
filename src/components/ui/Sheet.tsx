@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
+  Animated,
   Modal,
   Pressable,
   ScrollView,
@@ -10,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../contexts/ThemeContext";
 import { radius, spacing } from "../../theme/tokens";
+import { useOverlayOpen } from "./overlayState";
 
 interface Props {
   visible: boolean;
@@ -21,8 +23,9 @@ interface Props {
 }
 
 /**
- * A bottom sheet for choices and short forms: slides up over a dim backdrop,
- * keeps clear of the home indicator, scrolls when tall.
+ * A bottom sheet for choices and short forms. The backdrop fades while
+ * the card slides up (a sliding backdrop reads as a glitch), it keeps
+ * clear of the home indicator, and scrolls when tall.
  */
 export function Sheet({
   visible,
@@ -33,11 +36,32 @@ export function Sheet({
 }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const [rise] = useState(() => new Animated.Value(0));
+  useOverlayOpen(visible);
+
+  useEffect(() => {
+    if (!visible) {
+      rise.setValue(0);
+      return;
+    }
+    Animated.spring(rise, {
+      toValue: 1,
+      useNativeDriver: true,
+      bounciness: 0,
+      speed: 18,
+    }).start();
+  }, [visible, rise]);
+
+  const translateY = rise.interpolate({
+    inputRange: [0, 1],
+    outputRange: [240, 0],
+  });
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       statusBarTranslucent
       onRequestClose={() => dismissible && onClose()}
     >
@@ -47,12 +71,13 @@ export function Sheet({
           onPress={() => dismissible && onClose()}
           accessibilityLabel="Close"
         />
-        <View
+        <Animated.View
           style={[
             styles.sheet,
             {
               backgroundColor: colors.background,
               paddingBottom: insets.bottom + spacing.lg,
+              transform: [{ translateY }],
             },
             style,
           ]}
@@ -65,7 +90,7 @@ export function Sheet({
           >
             {children}
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );

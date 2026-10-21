@@ -47,7 +47,8 @@ export const timeParts = (iso?: string | null): [string, string] => {
     minute: "2-digit",
     hour12: true,
   });
-  const [time, ampm] = s.split(" ");
+  // Hermes separates the period with a narrow no-break space (U+202F).
+  const [time, ampm] = s.split(/\s+/);
   return [time, ampm ?? ""];
 };
 

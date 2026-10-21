@@ -39,6 +39,12 @@ describe("address helpers", () => {
   it("formats times defensively", () => {
     expect(timeParts("not a date")).toEqual(["—", ""]);
     const [t, ampm] = timeParts("2026-10-21T18:10:00");
+    // Hermes (Android) formats as "6:10\u202fPM": the period must still split off.
+    const spy = jest
+      .spyOn(Date.prototype, "toLocaleTimeString")
+      .mockReturnValue("6:10\u202fPM");
+    expect(timeParts("2026-10-21T18:10:00")).toEqual(["6:10", "PM"]);
+    spy.mockRestore();
     expect(t).toMatch(/^\d{1,2}:\d{2}$/);
     expect(["AM", "PM"]).toContain(ampm);
     expect(durationLabel("2026-10-21T18:00:00Z", "2026-10-21T18:12:00Z")).toBe(

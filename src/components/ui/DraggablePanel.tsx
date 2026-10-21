@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../contexts/ThemeContext";
 import { radius, spacing } from "../../theme/tokens";
+import { anyOverlayOpen } from "./overlayState";
 
 interface Props {
   /** Height when collapsed: what stays visible above the fold. */
@@ -59,6 +60,8 @@ function createPanResponder(
   };
   return PanResponder.create({
     onMoveShouldSetPanResponderCapture: (_e, g) => {
+      // A sheet or dialog on top owns the touch.
+      if (anyOverlayOpen()) return false;
       const vertical = Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx);
       if (!vertical) return false;
       // Open: only take a downward drag when the content is at the top,
