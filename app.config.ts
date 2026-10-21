@@ -13,8 +13,19 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
  *   manifest. Falls back to EXPO_PUBLIC_GOOGLE_MAPS_API_KEY, the key the JS
  *   side uses for Places, Geocoding and Distance Matrix (docs/PHASE2.md).
  */
+const androidMapsKey =
+  process.env.GOOGLE_MAPS_ANDROID_API_KEY ??
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
+  "";
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
+  extra: {
+    ...config.extra,
+    // Lets the JS side know whether the native Android map can start at all
+    // (a missing manifest key crashes MapView on mount).
+    googleMapsAndroidKeySet: androidMapsKey.length > 0,
+  },
   name: config.name ?? "OK Let's Go",
   slug: config.slug ?? "okletsgo",
   ios: {
@@ -30,10 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       ...config.android?.config,
       googleMaps: {
         apiKey:
-          process.env.GOOGLE_MAPS_ANDROID_API_KEY ??
-          process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
-          config.android?.config?.googleMaps?.apiKey ??
-          "",
+          androidMapsKey || config.android?.config?.googleMaps?.apiKey || "",
       },
     },
   },
