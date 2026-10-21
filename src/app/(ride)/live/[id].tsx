@@ -33,8 +33,8 @@ import { cad } from "../../../utils/money";
 import { rideOutcomeShownKey, sessionFlag } from "../../../utils/sessionFlags";
 import { radius, spacing } from "../../../theme/tokens";
 
-/** Handle area + content top padding inside DraggablePanel. */
-const PANEL_CHROME_HEIGHT = 32;
+/** Handle area (8 + 24 + 4) + content top padding (4) inside DraggablePanel. */
+const PANEL_CHROME_HEIGHT = 40;
 
 /**
  * The rider's live view of one ride: a full-screen map with the route and
@@ -63,7 +63,7 @@ export default function LiveRide() {
   // collapsed sheet shows exactly that and nothing half-cut beneath it.
   const [headerHeight, setHeaderHeight] = useState(176);
   const collapsedHeight =
-    PANEL_CHROME_HEIGHT + headerHeight + insets.bottom + spacing.lg;
+    PANEL_CHROME_HEIGHT + headerHeight + insets.bottom + spacing.xs;
 
   const { location: me } = useGeolocation(true);
 

@@ -15,8 +15,12 @@ export default function RideLayout() {
         screenOptions={{
           headerShown: true,
           headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerTitleStyle: { fontFamily: fontFamily.extrabold, fontSize: 18 },
+          headerTintColor: colors.primary,
+          headerTitleStyle: {
+            fontFamily: fontFamily.extrabold,
+            fontSize: 18,
+            color: colors.text,
+          },
           headerShadowVisible: false,
           headerBackButtonDisplayMode: "minimal",
           contentStyle: { backgroundColor: colors.background },
