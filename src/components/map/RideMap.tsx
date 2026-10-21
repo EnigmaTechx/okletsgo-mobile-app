@@ -12,7 +12,10 @@ import MapView, {
   type Region,
 } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { useTheme } from "../../contexts/ThemeContext";
+import { spacing } from "../../theme/tokens";
+import { AppText } from "../ui/AppText";
 import type { LatLng } from "../../utils/geo";
 import { DARK_MAP_STYLE } from "./mapStyles";
 
@@ -57,6 +60,15 @@ const region = (p: LatLng, delta = 0.02): Region => ({
 });
 
 const toCoord = (p: LatLng) => ({ latitude: p.lat, longitude: p.lng });
+
+/**
+ * Google Maps on Android refuses to start without a manifest key, and the
+ * crash takes the whole app with it. The key is baked in at prebuild from
+ * `.env` (docs/PHASE2.md); app.config.ts records whether it was present.
+ */
+const NATIVE_MAP_AVAILABLE =
+  Platform.OS !== "android" ||
+  Constants.expoConfig?.extra?.googleMapsAndroidKeySet === true;
 
 /**
  * The one map used by booking, the live ride and previews: brand-coloured
@@ -116,6 +128,25 @@ export const RideMap = forwardRef<RideMapHandle, Props>(function RideMap(
   }, [frameKey, followFrame]);
 
   const initial = framePoints[0] ?? pickup ?? me ?? DEFAULT_CENTER;
+
+  if (!NATIVE_MAP_AVAILABLE) {
+    return (
+      <View
+        style={[
+          styles.root,
+          styles.unavailable,
+          { backgroundColor: colors.surfaceRaised },
+          style,
+        ]}
+      >
+        <Ionicons name="map-outline" size={32} color={colors.textMuted} />
+        <AppText variant="small" color="textMuted" align="center">
+          Map unavailable: add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to .env and run
+          prebuild again.
+        </AppText>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -204,6 +235,12 @@ const isPoint = (p: LatLng | null | undefined): p is LatLng => !!p;
 
 const styles = StyleSheet.create({
   root: { overflow: "hidden" },
+  unavailable: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    padding: spacing.xl,
+  },
   dot: {
     width: 18,
     height: 18,

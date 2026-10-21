@@ -83,3 +83,62 @@ export const clientStatusLabel = (
       return ride.status.replace(/_/g, " ").toUpperCase();
   }
 };
+
+/**
+ * The big line at the top of the live panel, in the driver's name:
+ * "Marcus is ~4 min away", "Marcus has arrived", "Arriving at 8:15 PM".
+ */
+export const clientHeadline = (
+  ride: Pick<
+    RideRequest,
+    | "status"
+    | "driverFirstName"
+    | "forwardHistory"
+    | "driverLocation"
+    | "pickup"
+    | "destination"
+  >,
+  etaSeconds: number | null,
+  now = new Date(),
+): string => {
+  const name = ride.driverFirstName || "Your driver";
+  switch (ride.status) {
+    case "pending": {
+      const last = ride.forwardHistory?.[ride.forwardHistory.length - 1];
+      return last
+        ? `${last.fromDriverFirstName} can't take this one. Waiting for ${ride.driverFirstName || "a driver"}…`
+        : "Waiting for a driver…";
+    }
+    case "accepted":
+      return `${name} accepted your ride`;
+    case "heading_to_pickup": {
+      const secs =
+        etaSeconds ?? fallbackEtaSeconds(ride.driverLocation, ride.pickup);
+      if (secs === null) return `${name} is on the way`;
+      if (secs < 60) return `${name} is arriving now`;
+      return `${name} is ~${Math.round(secs / 60)} min away`;
+    }
+    case "arrived":
+      return `${name} has arrived`;
+    case "in_progress":
+      return dropoffEtaLabel(
+        etaSeconds ?? fallbackEtaSeconds(ride.driverLocation, ride.destination),
+        now,
+      );
+    case "completed":
+      return "You've arrived";
+    default:
+      return ride.status.replace(/_/g, " ");
+  }
+};
+
+/** Trip progress, 0–4, for the four-segment bar on the live panel. */
+export const progressStep = (status: RideRequest["status"]): number =>
+  ({
+    pending: 0,
+    accepted: 1,
+    heading_to_pickup: 2,
+    arrived: 3,
+    in_progress: 4,
+    completed: 4,
+  })[status as string] ?? 0;

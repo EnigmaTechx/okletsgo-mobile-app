@@ -180,7 +180,9 @@ export function ClientTripRow({
     >
       <View style={[styles.accent, { backgroundColor: accent }]} />
       <View style={styles.time}>
-        <AppText variant="heading">{time}</AppText>
+        <AppText variant="heading" numberOfLines={1}>
+          {time}
+        </AppText>
         <AppText variant="eyebrow" color="textMuted">
           {ampm}
         </AppText>
@@ -344,7 +346,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   accent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
-  time: { width: 56, alignItems: "center" },
+  time: { width: 64, alignItems: "center" },
   rowText: { flex: 1, gap: 1 },
   meta: { alignItems: "flex-end", gap: 1, minWidth: 56 },
 });

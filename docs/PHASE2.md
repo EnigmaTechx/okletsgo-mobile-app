@@ -28,8 +28,12 @@ SegmentedControl,DateTimeField,IconButton}`.
 | `@react-native-community/datetimepicker` | Pickup date and time |
 | `expo-clipboard` | Copy a coupon code |
 
-After pulling: `npm install`, then `npx expo prebuild --platform android --clean`
-and `npx expo run:android`.
+After pulling: `npm install`, create `.env` (next section) **before**
+prebuilding, then `npx expo prebuild --platform android --clean` and
+`npx expo run:android`. The Android key is written into the manifest at
+prebuild time, so adding or changing it later means running prebuild again.
+Without it the native map cannot start; the app shows a "Map unavailable"
+panel where the map would be instead of crashing.
 
 ## Google Maps Platform setup (one-time)
 
