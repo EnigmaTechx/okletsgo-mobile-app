@@ -30,7 +30,11 @@ import {
 } from "../../../services/rideService";
 import { haversineKm, pointOf, type LatLng } from "../../../utils/geo";
 import { cad } from "../../../utils/money";
-import { rideOutcomeShownKey, sessionFlag } from "../../../utils/sessionFlags";
+import {
+  rideOutcomeShownKey,
+  sessionFlag,
+  tripCompleteShownKey,
+} from "../../../utils/sessionFlags";
 import { radius, spacing } from "../../../theme/tokens";
 
 /** Handle area (8 + 24 + 4) + content top padding (4) inside DraggablePanel. */
@@ -123,6 +127,9 @@ export default function LiveRide() {
       if (data.status === "completed") {
         if (completionHandled.current) return;
         completionHandled.current = true;
+        // Claim this ride so the app-wide watcher does not open the
+        // separate "You've arrived" screen on top of this one.
+        sessionFlag.set(tripCompleteShownKey(data.id as string));
         if (typeof data.driverRatingByClient === "number") {
           // Rated already (e.g. reopened later): nothing left to ask.
           goHistory(data.id as string);
