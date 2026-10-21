@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useBooking } from "../../../components/booking/BookingContext";
 import { RideMap } from "../../../components/map/RideMap";
@@ -48,6 +48,22 @@ type Field = "pickup" | "destination";
 const quoteKeyFor = (a: PickedPlace, b: PickedPlace) =>
   `${a.lat},${a.lng}>${b.lat},${b.lng}`;
 
+const parsePreset = (raw?: string): PickedPlace | null => {
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw) as Partial<PickedPlace>;
+    if (
+      typeof p.address === "string" &&
+      typeof p.lat === "number" &&
+      typeof p.lng === "number"
+    )
+      return { address: p.address, lat: p.lat, lng: p.lng };
+  } catch {
+    /* ignore a malformed param */
+  }
+  return null;
+};
+
 /**
  * Step 1 of 4: where from, where to. Typing searches Ontario addresses;
  * an empty field offers current location, saved places and recent trips.
@@ -59,10 +75,13 @@ export default function BookLocations() {
   const { colors } = useTheme();
   const { currentUser } = useAuth();
   const { draft, update } = useBooking();
+  // A saved place tapped on Home arrives here as the drop-off.
+  const params = useLocalSearchParams<{ destination?: string }>();
+  const [preset] = useState(() => parsePreset(params.destination));
 
   const [pickup, setPickup] = useState<PickedPlace | null>(draft.pickup);
   const [destination, setDestination] = useState<PickedPlace | null>(
-    draft.destination,
+    draft.destination ?? preset,
   );
   const [active, setActive] = useState<Field | null>(null);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
@@ -91,7 +110,8 @@ export default function BookLocations() {
   // Prefill the fields when returning from a later step.
   useEffect(() => {
     if (draft.pickup) pickupSearch.seed(draft.pickup.address);
-    if (draft.destination) destSearch.seed(draft.destination.address);
+    const dest = draft.destination ?? preset;
+    if (dest) destSearch.seed(dest.address);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

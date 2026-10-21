@@ -1,8 +1,10 @@
 import {
+  clientHeadline,
   clientStatusLabel,
   dropoffEtaLabel,
   fallbackEtaSeconds,
   pickupEtaLabel,
+  progressStep,
 } from "./eta";
 
 const base = {
@@ -59,5 +61,32 @@ describe("eta labels", () => {
     expect(
       clientStatusLabel({ ...base, status: "heading_to_pickup" }, 120),
     ).toBe("Arriving in ~2 min");
+  });
+});
+
+describe("headline and progress", () => {
+  it("speaks in the driver's name", () => {
+    expect(clientHeadline({ ...base, status: "accepted" }, null)).toBe(
+      "Marcus accepted your ride",
+    );
+    expect(clientHeadline({ ...base, status: "heading_to_pickup" }, 250)).toBe(
+      "Marcus is ~4 min away",
+    );
+    expect(clientHeadline({ ...base, status: "heading_to_pickup" }, 20)).toBe(
+      "Marcus is arriving now",
+    );
+    expect(clientHeadline({ ...base, status: "arrived" }, null)).toBe(
+      "Marcus has arrived",
+    );
+    expect(clientHeadline({ ...base, status: "completed" }, null)).toBe(
+      "You've arrived",
+    );
+  });
+  it("maps statuses onto the four segments", () => {
+    expect(progressStep("pending")).toBe(0);
+    expect(progressStep("accepted")).toBe(1);
+    expect(progressStep("heading_to_pickup")).toBe(2);
+    expect(progressStep("arrived")).toBe(3);
+    expect(progressStep("in_progress")).toBe(4);
   });
 });

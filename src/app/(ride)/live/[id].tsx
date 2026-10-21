@@ -1,23 +1,27 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import {
   RideMap,
   type RideMapHandle,
   type RouteLine,
 } from "../../../components/map/RideMap";
-import { ClientRideStatusPanel } from "../../../components/rides/ClientRideStatusPanel";
-import { RatingDialog } from "../../../components/rides/RatingDialog";
+import {
+  ClientRideStatusPanel,
+  RIDE_PANEL_COLLAPSED_HEIGHT,
+} from "../../../components/rides/ClientRideStatusPanel";
 import {
   RideOutcomeDialog,
   type RideOutcome,
 } from "../../../components/rides/RideOutcomeDialog";
+import { TripCompletePanel } from "../../../components/rides/TripCompletePanel";
 import { AppText } from "../../../components/ui/AppText";
+import { DraggablePanel } from "../../../components/ui/DraggablePanel";
 import { IconButton } from "../../../components/ui/IconButton";
 import { LoadingScreen } from "../../../components/ui/LoadingScreen";
 import { useToast } from "../../../components/ui/Toast";
+import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useDrivingRoute } from "../../../hooks/useDrivingRoute";
 import { useGeolocation } from "../../../hooks/useGeolocation";
@@ -32,26 +36,26 @@ import { cad } from "../../../utils/money";
 import { rideOutcomeShownKey, sessionFlag } from "../../../utils/sessionFlags";
 import { radius, spacing } from "../../../theme/tokens";
 
-const PANEL_COLLAPSED = 190;
-
 /**
  * The rider's live view of one ride: a full-screen map with the route and
- * the driver's car, and a panel with status, driver, route and actions.
- * Leaves on its own when the ride ends: history for a driver cancellation
- * or a completed trip (after the rating prompt), home otherwise.
+ * the driver's car, and a draggable panel with status, driver, route and
+ * actions. When the driver completes the trip the panel becomes the
+ * "You've arrived" summary with the rating prompt, then moves on to the
+ * trip's history page. A cancellation leaves on its own, as in Ionic.
  */
 export default function LiveRide() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
   const { colors } = useTheme();
+  const { userProfile } = useAuth();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const map = useRef<RideMapHandle>(null);
 
   const [ride, setRide] = useState<RideRequest | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [cancelling, setCancelling] = useState(false);
-  const [ratingRide, setRatingRide] = useState<RideRequest | null>(null);
   const [outcome, setOutcome] = useState<RideOutcome | null>(null);
   const completionHandled = useRef(false);
   const [stableDriver, setStableDriver] = useState<LatLng | null>(null);
@@ -114,11 +118,13 @@ export default function LiveRide() {
       if (data.status === "completed") {
         if (completionHandled.current) return;
         completionHandled.current = true;
-        toast("Trip completed! Thanks for riding.", { type: "success" });
-        if (typeof data.driverRatingByClient === "number")
+        if (typeof data.driverRatingByClient === "number") {
+          // Rated already (e.g. reopened later): nothing left to ask.
           goHistory(data.id as string);
-        else setRatingRide(data);
-        return;
+          return;
+        }
+        toast("Trip completed! Thanks for riding.", { type: "success" });
+        setExpanded(true);
       }
       setRide(data);
     });
@@ -142,14 +148,15 @@ export default function LiveRide() {
   const preTrip = status === "pending" || status === "accepted";
   const toPickup = status === "heading_to_pickup" || status === "arrived";
   const inProgress = status === "in_progress";
+  const completed = status === "completed";
 
   const legToPickup = useDrivingRoute(
     toPickup ? stableDriver : null,
     toPickup ? pickup : null,
   );
   const legTrip = useDrivingRoute(
-    preTrip || toPickup ? pickup : null,
-    preTrip || toPickup ? dropoff : null,
+    preTrip || toPickup || completed ? pickup : null,
+    preTrip || toPickup || completed ? dropoff : null,
   );
   const legToDest = useDrivingRoute(
     inProgress ? stableDriver : null,
@@ -199,18 +206,6 @@ export default function LiveRide() {
       <>
         <LoadingScreen />
         {outcomeDialog}
-        {ratingRide ? (
-          <RatingDialog
-            visible
-            rideId={ratingRide.id as string}
-            driverName={ratingRide.driverFirstName || "your driver"}
-            onClose={() => {
-              const rid = ratingRide.id as string;
-              setRatingRide(null);
-              goHistory(rid);
-            }}
-          />
-        ) : null}
       </>
     );
   }
@@ -222,7 +217,7 @@ export default function LiveRide() {
   if (legToDest)
     routes.push({ coords: legToDest.coords, color: colors.primary });
 
-  const panelMax = expanded ? "62%" : PANEL_COLLAPSED;
+  const expandedHeight = Math.round(windowHeight * (completed ? 0.78 : 0.64));
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -231,14 +226,16 @@ export default function LiveRide() {
         style={StyleSheet.absoluteFill}
         pickup={inProgress ? null : pickup}
         dropoff={dropoff}
-        driver={stableDriver}
-        me={inProgress ? null : me}
+        driver={completed ? null : stableDriver}
+        me={inProgress || completed ? null : me}
         routes={routes}
-        frame={[pickup, dropoff, stableDriver].filter((p): p is LatLng => !!p)}
-        bottomPadding={PANEL_COLLAPSED}
+        frame={[pickup, dropoff, completed ? null : stableDriver].filter(
+          (p): p is LatLng => !!p,
+        )}
+        bottomPadding={RIDE_PANEL_COLLAPSED_HEIGHT}
       />
 
-      {ride.couponCode ? (
+      {ride.couponCode && !completed ? (
         <View
           style={[
             styles.couponChip,
@@ -261,54 +258,40 @@ export default function LiveRide() {
         />
       </View>
 
-      <View
-        style={[
-          styles.panel,
-          {
-            backgroundColor: colors.background,
-            maxHeight: panelMax,
-            paddingBottom: insets.bottom + spacing.md,
-          },
-        ]}
+      <DraggablePanel
+        collapsedHeight={RIDE_PANEL_COLLAPSED_HEIGHT + insets.bottom}
+        expandedHeight={expandedHeight}
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+        accessory={
+          completed ? null : (
+            <IconButton
+              icon="locate"
+              label="Recenter map"
+              raised
+              onPress={() =>
+                map.current?.focus(
+                  me ?? pickup ?? dropoff ?? { lat: 43.4643, lng: -80.5204 },
+                  0.01,
+                )
+              }
+            />
+          )
+        }
       >
-        <View style={styles.floatRow}>
-          <IconButton
-            icon="locate"
-            label="Recenter map"
-            raised
-            onPress={() =>
-              map.current?.focus(
-                me ?? pickup ?? dropoff ?? { lat: 43.4643, lng: -80.5204 },
-                0.01,
-              )
-            }
+        {completed ? (
+          <TripCompletePanel
+            ride={ride}
+            riderFirstName={userProfile?.firstName}
+            onDone={() => goHistory(ride.id as string)}
           />
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={expanded ? "Collapse details" : "Expand details"}
-          onPress={() => setExpanded((e) => !e)}
-          style={styles.handleArea}
-        >
-          <View style={[styles.handle, { backgroundColor: colors.border }]} />
-          <Ionicons
-            name={expanded ? "chevron-down" : "chevron-up"}
-            size={16}
-            color={colors.textMuted}
-          />
-        </Pressable>
-        <ScrollView
-          bounces={false}
-          contentContainerStyle={styles.panelContent}
-          scrollEnabled={expanded}
-        >
+        ) : (
           <ClientRideStatusPanel
             ride={ride}
-            expanded={expanded}
             onCancel={(r) => void handleCancel(r)}
           />
-        </ScrollView>
-      </View>
+        )}
+      </DraggablePanel>
 
       {cancelling ? (
         <View style={[styles.busy, { backgroundColor: colors.backdrop }]}>
@@ -337,31 +320,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
-  },
-  panel: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopLeftRadius: radius.xxl,
-    borderTopRightRadius: radius.xxl,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 12,
-  },
-  floatRow: {
-    position: "absolute",
-    right: spacing.screen,
-    top: -64,
-  },
-  handleArea: { alignItems: "center", paddingTop: spacing.sm, gap: 2 },
-  handle: { width: 40, height: 4, borderRadius: 2 },
-  panelContent: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
   },
   busy: {
     position: "absolute",

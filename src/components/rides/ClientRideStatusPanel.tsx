@@ -1,18 +1,24 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../contexts/ThemeContext";
 import type { RideRequest } from "../../interfaces/ride";
 import type { UserProfile } from "../../interfaces/user";
 import { fetchUserProfile } from "../../services/rideService";
 import { fetchEtaSeconds } from "../../services/routing";
-import { radius, spacing } from "../../theme/tokens";
 import { formatDayAndTime, formatTime } from "../../utils/address";
-import { clientStatusLabel } from "../../utils/eta";
+import { clientHeadline, progressStep } from "../../utils/eta";
+import {
+  earlyCancellationFee,
+  MID_TRIP_CANCELLATION_FEE,
+} from "../../utils/fareCalculator";
+import { FEATURES } from "../../config/features";
 import { pointOf } from "../../utils/geo";
 import { cad } from "../../utils/money";
 import { formatDriverRating } from "../../utils/rating";
+import { radius, spacing } from "../../theme/tokens";
 import { AppText } from "../ui/AppText";
+import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
 import { CancelRideSheet } from "./CancelRideSheet";
@@ -37,19 +43,23 @@ const PLATE_VISIBLE = new Set<RideRequest["status"]>([
   "completed",
 ]);
 const STAR_GOLD = "#F5B301";
+const STEPS = ["Accepted", "Heading to you", "Arrived", "On trip"];
+
+/** Height of the part that stays visible when the panel is collapsed. */
+export const RIDE_PANEL_COLLAPSED_HEIGHT = 236;
 
 interface Props {
   ride: RideRequest;
-  /** Collapsed shows only the status line and driver; expanded shows all. */
-  expanded: boolean;
   onCancel: (reason: string) => void;
 }
 
 /**
- * The panel under the live map: status and ETA, the driver and their car,
- * the route, the total, and the cancel / end-trip action with its sheet.
+ * The panel under the live map, laid out like the approved mockup: the
+ * headline in the driver's name, the four-step progress bar, the driver
+ * and their car, then (when open) the route, what you pay, and the
+ * change-time / cancel actions.
  */
-export function ClientRideStatusPanel({ ride, expanded, onCancel }: Props) {
+export function ClientRideStatusPanel({ ride, onCancel }: Props) {
   const { colors } = useTheme();
   const [driver, setDriver] = useState<UserProfile | null>(null);
   const [eta, setEta] = useState<{ key: string; seconds: number } | null>(null);
@@ -111,15 +121,7 @@ export function ClientRideStatusPanel({ ride, expanded, onCancel }: Props) {
   const plateVisible =
     PLATE_VISIBLE.has(ride.status) && !!ride.driverPlateNumber;
   const inProgress = ride.status === "in_progress";
-  const statusTint =
-    {
-      pending: colors.accent,
-      accepted: colors.secondary,
-      heading_to_pickup: colors.primary,
-      arrived: colors.primary,
-      in_progress: colors.success,
-    }[ride.status as string] ?? colors.textMuted;
-
+  const step = progressStep(ride.status);
   const pendingChange =
     ride.pendingTimeChange?.status === "pending"
       ? ride.pendingTimeChange
@@ -128,49 +130,100 @@ export function ClientRideStatusPanel({ ride, expanded, onCancel }: Props) {
     (ride.status === "pending" || ride.status === "accepted") &&
     !pendingChange &&
     !!ride.scheduledTime;
-  const when = new Date(ride.scheduledTime || ride.createdAt);
-  const dateLabel = Number.isNaN(when.getTime())
-    ? "ASAP"
-    : when.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const vehicleLine = [ride.driverVehicleColor, ride.driverVehicle]
+    .filter(Boolean)
+    .join(" ");
+  const total = ride.totalClientCharge ?? 0;
+  const feeNote = inProgress
+    ? ` · ${cad(MID_TRIP_CANCELLATION_FEE)} fee`
+    : FEATURES.STRIPE_PAYMENTS && ride.status !== "pending"
+      ? ` · ${cad(earlyCancellationFee(total))} fee`
+      : "";
 
   return (
     <View style={styles.root}>
-      {/* Status + time */}
-      <View style={styles.statusRow}>
-        <View style={[styles.statusDot, { backgroundColor: statusTint }]} />
-        <AppText variant="heading" style={styles.statusText}>
-          {clientStatusLabel(ride, etaSeconds)}
-        </AppText>
-      </View>
-      <View style={styles.timeRow}>
-        <Ionicons name="calendar-outline" size={15} color={colors.textMuted} />
-        <AppText variant="small" color="textSecondary">
-          {dateLabel}
-        </AppText>
-        <Ionicons
-          name="time-outline"
-          size={15}
-          color={colors.textMuted}
-          style={styles.timeIcon}
-        />
-        <AppText variant="small" color="textSecondary">
-          {formatTime(ride.scheduledTime || ride.createdAt)}
-        </AppText>
-        {canEditTime ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change pickup time"
-            onPress={() => setEditOpen(true)}
-            hitSlop={8}
-            style={styles.editBtn}
-          >
-            <Ionicons name="create-outline" size={20} color={colors.primary} />
-            <AppText variant="smallStrong" color="primary">
-              Change
+      <AppText variant="title">{clientHeadline(ride, etaSeconds)}</AppText>
+
+      {/* Progress */}
+      <View style={styles.progress}>
+        <View style={styles.bars}>
+          {STEPS.map((label, i) => (
+            <View
+              key={label}
+              style={[
+                styles.bar,
+                { backgroundColor: i < step ? colors.success : colors.border },
+              ]}
+            />
+          ))}
+        </View>
+        <View style={styles.bars}>
+          {STEPS.map((label, i) => (
+            <AppText
+              key={label}
+              variant="eyebrow"
+              style={[
+                styles.stepLabel,
+                { color: i < step ? colors.success : colors.textMuted },
+              ]}
+              numberOfLines={1}
+            >
+              {label}
             </AppText>
-          </Pressable>
-        ) : null}
+          ))}
+        </View>
       </View>
+
+      {/* Driver */}
+      <Pressable
+        accessibilityRole="button"
+        disabled={!photosVisible}
+        onPress={() => setPreviewOpen(true)}
+        style={styles.driverRow}
+      >
+        <Avatar
+          firstName={ride.driverFirstName}
+          lastName={ride.driverLastName}
+          photoUrl={photoUrl}
+          size={56}
+          tint={ride.driverId ? colors.success : colors.border}
+        />
+        <View style={styles.driverText}>
+          <View style={styles.nameRow}>
+            <AppText variant="heading" numberOfLines={1}>
+              {ride.driverFirstName || "Looking for a driver…"}
+            </AppText>
+            {ride.driverId ? (
+              <View style={styles.rating}>
+                <Ionicons name="star" size={13} color={STAR_GOLD} />
+                <AppText variant="smallStrong" color="accent">
+                  {formatDriverRating(driver?.rating)}
+                </AppText>
+              </View>
+            ) : null}
+          </View>
+          {ride.driverId ? (
+            <AppText variant="small" color="textSecondary" numberOfLines={1}>
+              {vehicleLine || "Vehicle TBD"}
+              {plateVisible ? " · " : ""}
+              {plateVisible ? (
+                <AppText variant="smallStrong" style={styles.plate}>
+                  {ride.driverPlateNumber}
+                </AppText>
+              ) : null}
+            </AppText>
+          ) : null}
+          {ride.driverId && !plateVisible ? (
+            <AppText variant="small" color="textMuted">
+              Plate shown once your driver heads out
+            </AppText>
+          ) : null}
+        </View>
+        {vehiclePhotoUrl ? (
+          <Image source={{ uri: vehiclePhotoUrl }} style={styles.carPhoto} />
+        ) : null}
+      </Pressable>
+
       {pendingChange ? (
         <View
           style={[styles.notice, { backgroundColor: colors.surfaceRaised }]}
@@ -183,98 +236,63 @@ export function ClientRideStatusPanel({ ride, expanded, onCancel }: Props) {
         </View>
       ) : null}
 
-      {/* Driver */}
-      <Pressable
-        accessibilityRole="button"
-        disabled={!photosVisible}
-        onPress={() => setPreviewOpen(true)}
-        style={[styles.driverRow, { borderColor: colors.border }]}
+      {/* Route */}
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
       >
-        <View style={styles.driverText}>
-          <AppText variant="title">
-            {ride.driverFirstName || "Looking…"}
+        <RouteTimeline
+          pickup={ride.pickup.address}
+          dropoff={ride.destination.address}
+          compact
+        />
+      </View>
+
+      {/* Time and pay */}
+      <View style={styles.payRow}>
+        <View>
+          <AppText variant="eyebrow" color="textMuted">
+            PICKUP
           </AppText>
-          {ride.driverId ? (
-            <AppText variant="small" color="textSecondary">
-              {ride.driverVehicle || "Vehicle TBD"}
-              {ride.driverVehicleColor ? ` (${ride.driverVehicleColor})` : ""}
-              {plateVisible ? ` · ${ride.driverPlateNumber}` : ""}
-            </AppText>
-          ) : null}
-          {ride.driverId ? (
-            <View style={styles.rating}>
-              <Ionicons name="star" size={14} color={STAR_GOLD} />
-              <AppText variant="smallStrong" color="textSecondary">
-                {formatDriverRating(driver?.rating)}
-              </AppText>
-            </View>
-          ) : null}
-          {!plateVisible && ride.status === "accepted" ? (
-            <AppText variant="small" color="textMuted">
-              Plate revealed when your driver heads out
+          <AppText variant="bodyStrong">
+            {formatDayAndTime(ride.scheduledTime || ride.createdAt) ||
+              formatTime(ride.createdAt)}
+          </AppText>
+        </View>
+        <View style={styles.payAmount}>
+          <AppText variant="eyebrow" color="textMuted">
+            YOU PAY
+          </AppText>
+          <AppText variant="heading" color="success">
+            {cad(total)}
+          </AppText>
+          {ride.couponCode ? (
+            <AppText variant="small" color="accent">
+              {ride.couponCode} applied
             </AppText>
           ) : null}
         </View>
-        <View style={styles.imagery}>
-          {vehiclePhotoUrl ? (
-            <Image source={{ uri: vehiclePhotoUrl }} style={styles.carPhoto} />
-          ) : (
-            <View
-              style={[
-                styles.carPhoto,
-                styles.carFallback,
-                { backgroundColor: colors.surfaceRaised },
-              ]}
-            >
-              <Ionicons name="car-sport" size={34} color={colors.textMuted} />
-            </View>
-          )}
-          <View
-            style={[
-              styles.avatarOverlay,
-              {
-                borderColor: colors.background,
-                backgroundColor: colors.surface,
-              },
-            ]}
-          >
-            {photoUrl ? (
-              <Image source={{ uri: photoUrl }} style={styles.avatarImg} />
-            ) : (
-              <Ionicons name="person" size={18} color={colors.textMuted} />
-            )}
-          </View>
-        </View>
-      </Pressable>
+      </View>
 
-      {expanded ? (
-        <>
-          <RouteTimeline
-            pickup={ride.pickup.address}
-            dropoff={ride.destination.address}
-          />
-
-          <View style={[styles.payment, { borderColor: colors.border }]}>
-            <AppText variant="eyebrow" color="textMuted">
-              PAYMENT
-            </AppText>
-            <View style={styles.payRow}>
-              <AppText variant="body" color="textSecondary">
-                Total
-              </AppText>
-              <AppText variant="heading" color="primary">
-                {cad(ride.totalClientCharge)}
-              </AppText>
-            </View>
-          </View>
-
+      {/* Actions */}
+      <View style={styles.actions}>
+        {canEditTime ? (
           <Button
-            title={inProgress ? "End trip early" : "Cancel ride"}
-            variant={inProgress ? "ghost" : "secondary"}
-            onPress={() => setCancelOpen(true)}
+            title="Change time"
+            variant="secondary"
+            onPress={() => setEditOpen(true)}
+            style={styles.half}
           />
-        </>
-      ) : null}
+        ) : null}
+        <Button
+          title={inProgress ? `End trip${feeNote}` : `Cancel${feeNote}`}
+          variant="danger"
+          onPress={() => setCancelOpen(true)}
+          style={styles.half}
+        />
+      </View>
 
       <CancelRideSheet
         visible={cancelOpen}
@@ -295,32 +313,19 @@ export function ClientRideStatusPanel({ ride, expanded, onCancel }: Props) {
 
       <Sheet visible={previewOpen} onClose={() => setPreviewOpen(false)}>
         <View style={styles.preview}>
-          <View style={styles.previewImages}>
-            <View
-              style={[
-                styles.previewAvatar,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.secondary,
-                },
-              ]}
-            >
-              {photoUrl ? (
-                <Image
-                  source={{ uri: photoUrl }}
-                  style={styles.previewAvatarImg}
-                />
-              ) : (
-                <Ionicons name="person" size={48} color={colors.textMuted} />
-              )}
-            </View>
-            {vehiclePhotoUrl ? (
-              <Image
-                source={{ uri: vehiclePhotoUrl }}
-                style={styles.previewCar}
-              />
-            ) : null}
-          </View>
+          <Avatar
+            firstName={ride.driverFirstName}
+            lastName={ride.driverLastName}
+            photoUrl={photoUrl}
+            size={120}
+            tint={colors.success}
+          />
+          {vehiclePhotoUrl ? (
+            <Image
+              source={{ uri: vehiclePhotoUrl }}
+              style={styles.previewCar}
+            />
+          ) : null}
           <AppText variant="title">{ride.driverFirstName}</AppText>
           <View style={styles.rating}>
             <Ionicons name="star" size={16} color={STAR_GOLD} />
@@ -329,11 +334,10 @@ export function ClientRideStatusPanel({ ride, expanded, onCancel }: Props) {
             </AppText>
           </View>
           <AppText variant="body" color="textSecondary">
-            {ride.driverVehicle}
-            {ride.driverVehicleColor ? ` (${ride.driverVehicleColor})` : ""}
+            {vehicleLine}
           </AppText>
           {ride.driverPlateNumber ? (
-            <View style={[styles.plate, { borderColor: colors.text }]}>
+            <View style={[styles.plateBadge, { borderColor: colors.text }]}>
               <AppText variant="heading">{ride.driverPlateNumber}</AppText>
             </View>
           ) : null}
@@ -345,17 +349,16 @@ export function ClientRideStatusPanel({ ride, expanded, onCancel }: Props) {
 
 const styles = StyleSheet.create({
   root: { gap: spacing.md },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
-  statusText: { flex: 1 },
-  timeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  timeIcon: { marginLeft: spacing.sm },
-  editBtn: {
-    marginLeft: "auto",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
+  progress: { gap: 6 },
+  bars: { flexDirection: "row", gap: 6 },
+  bar: { flex: 1, height: 6, borderRadius: 3 },
+  stepLabel: { flex: 1, fontSize: 10, letterSpacing: 0.3 },
+  driverRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  driverText: { flex: 1, gap: 2 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  rating: { flexDirection: "row", alignItems: "center", gap: 3 },
+  plate: { letterSpacing: 1 },
+  carPhoto: { width: 72, height: 48, borderRadius: radius.sm },
   notice: {
     flexDirection: "row",
     alignItems: "center",
@@ -364,64 +367,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   noticeText: { flex: 1 },
-  driverRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  driverText: { flex: 1, gap: 2 },
-  rating: { flexDirection: "row", alignItems: "center", gap: 4 },
-  imagery: { width: 96, height: 72 },
-  carPhoto: { width: 96, height: 64, borderRadius: radius.md },
-  carFallback: { alignItems: "center", justifyContent: "center" },
-  avatarOverlay: {
-    position: "absolute",
-    right: -4,
-    bottom: -4,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  avatarImg: { width: 36, height: 36 },
-  payment: {
-    gap: spacing.xs,
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+  card: {
+    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
   },
   payRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-end",
   },
+  payAmount: { alignItems: "flex-end" },
+  actions: { flexDirection: "row", gap: spacing.md },
+  half: { flex: 1 },
   preview: {
     alignItems: "center",
     gap: spacing.sm,
     paddingVertical: spacing.md,
   },
-  previewImages: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  previewAvatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 3,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  previewAvatarImg: { width: 110, height: 110 },
-  previewCar: { width: 150, height: 100, borderRadius: radius.lg },
-  plate: {
+  previewCar: { width: 180, height: 110, borderRadius: radius.lg },
+  plateBadge: {
     marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,

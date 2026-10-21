@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useBooking } from "../../../components/booking/BookingContext";
 import { RideMap } from "../../../components/map/RideMap";
@@ -44,6 +44,14 @@ import { fontFamily, radius, spacing } from "../../../theme/tokens";
  */
 export default function BookConfirm() {
   const router = useRouter();
+  // The (ride) stack's own navigation: popToTop + replace in one go leaves
+  // the success screen as the stack's only screen, which router.dismissAll
+  // followed by router.replace did not (the replace targeted the screen
+  // that had just been popped).
+  const stack = useNavigation() as unknown as {
+    popToTop(): void;
+    replace(name: string, params?: Record<string, string>): void;
+  };
   const toast = useToast();
   const { colors } = useTheme();
   const { userProfile } = useAuth();
@@ -141,21 +149,18 @@ export default function BookConfirm() {
       // Leave the wizard behind: the success screen becomes the only screen
       // in this stack, so back (and swipe-back) lands on Home, never on a
       // finished booking step.
-      router.dismissAll();
-      router.replace({
-        pathname: "/(ride)/book/success",
-        params: {
-          rideId: result.rideId,
-          driverFirstName: driver.firstName,
-          driverPhotoUrl: driver.photoUrl ?? "",
-          pickupAddress: pickup.address,
-          destinationAddress: destination.address,
-          totalDue: String(
-            result.couponDropped ? totalDue(fare, SERVICE_FEE, 0) : total,
-          ),
-          dateStr: date,
-          timeStr: time,
-        },
+      stack.popToTop();
+      stack.replace("book/success", {
+        rideId: result.rideId,
+        driverFirstName: driver.firstName,
+        driverPhotoUrl: driver.photoUrl ?? "",
+        pickupAddress: pickup.address,
+        destinationAddress: destination.address,
+        totalDue: String(
+          result.couponDropped ? totalDue(fare, SERVICE_FEE, 0) : total,
+        ),
+        dateStr: date,
+        timeStr: time,
       });
     } catch (err) {
       console.error("Booking error:", err);

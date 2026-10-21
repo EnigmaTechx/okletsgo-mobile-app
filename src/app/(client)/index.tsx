@@ -13,7 +13,6 @@ import {
   type RideOutcome,
 } from "../../components/rides/RideOutcomeDialog";
 import { AppText } from "../../components/ui/AppText";
-import { Button } from "../../components/ui/Button";
 import { LoadingScreen } from "../../components/ui/LoadingScreen";
 import { Logo } from "../../components/ui/Logo";
 import { Screen } from "../../components/ui/Screen";
@@ -153,6 +152,19 @@ export default function ClientHome() {
   const openRide = (id: string) =>
     router.push({ pathname: "/(ride)/live/[id]", params: { id } });
   const startBooking = () => router.push("/(ride)/book/locations");
+  // A saved place opens the wizard with that address already set as the
+  // drop-off, so the rider only has to confirm the pickup.
+  const bookTo = (p: SavedPlace) =>
+    router.push({
+      pathname: "/(ride)/book/locations",
+      params: {
+        destination: JSON.stringify({
+          address: p.address,
+          lat: p.lat,
+          lng: p.lng,
+        }),
+      },
+    });
 
   if (!userProfile || rides === null) return <LoadingScreen />;
 
@@ -208,7 +220,8 @@ export default function ClientHome() {
                 <Pressable
                   key={p.id}
                   accessibilityRole="button"
-                  onPress={startBooking}
+                  accessibilityLabel={`Book a ride to ${p.label}`}
+                  onPress={() => bookTo(p)}
                   style={({ pressed }) => [
                     styles.chip,
                     {
@@ -268,15 +281,6 @@ export default function ClientHome() {
           </>
         )}
       </ScrollView>
-
-      <View
-        style={[
-          styles.footer,
-          { borderTopColor: colors.border, backgroundColor: colors.background },
-        ]}
-      >
-        <Button title="Book a ride" onPress={startBooking} />
-      </View>
 
       {ratingRide ? (
         <RatingDialog
@@ -340,9 +344,4 @@ const styles = StyleSheet.create({
   },
   empty: { alignItems: "center", gap: spacing.sm, paddingVertical: 48 },
   block: { marginTop: spacing.lg },
-  footer: {
-    padding: spacing.screen,
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
 });
