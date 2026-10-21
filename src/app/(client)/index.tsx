@@ -187,7 +187,52 @@ export default function ClientHome() {
           <Logo width={100} />
         </View>
 
-        {/* Book */}
+        {rides.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="car-outline" size={44} color={colors.textMuted} />
+            <AppText variant="body" color="textMuted" align="center">
+              You have no active rides.
+            </AppText>
+          </View>
+        ) : (
+          <>
+            {active.map((r) => (
+              <View key={r.id} style={styles.block}>
+                <ClientLiveCard ride={r} onOpen={openRide} />
+              </View>
+            ))}
+            {active.length === 0 && confirmed.length > 0 ? (
+              <View style={styles.block}>
+                <ClientNextStrip ride={confirmed[0]} onOpen={openRide} />
+              </View>
+            ) : null}
+            <ClientTripGroups
+              theme="upcoming"
+              title="Confirmed"
+              rides={confirmed}
+              onOpen={openRide}
+            />
+            <ClientTripGroups
+              theme="requests"
+              title="Waiting for driver"
+              rides={pending}
+              isExpired={isExpired}
+              dismissingIds={dismissing}
+              onOpen={openRide}
+              onDismiss={(id) => void dismissExpired(id)}
+            />
+          </>
+        )}
+      </ScrollView>
+
+      {/* Fixed above the tabs so it is always one tap away, however long
+          the list of rides grows. */}
+      <View
+        style={[
+          styles.footer,
+          { backgroundColor: colors.background, borderTopColor: colors.border },
+        ]}
+      >
         <View
           style={[
             styles.bookCard,
@@ -243,44 +288,7 @@ export default function ClientHome() {
             </ScrollView>
           ) : null}
         </View>
-
-        {rides.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="car-outline" size={44} color={colors.textMuted} />
-            <AppText variant="body" color="textMuted" align="center">
-              You have no active rides.
-            </AppText>
-          </View>
-        ) : (
-          <>
-            {active.map((r) => (
-              <View key={r.id} style={styles.block}>
-                <ClientLiveCard ride={r} onOpen={openRide} />
-              </View>
-            ))}
-            {active.length === 0 && confirmed.length > 0 ? (
-              <View style={styles.block}>
-                <ClientNextStrip ride={confirmed[0]} onOpen={openRide} />
-              </View>
-            ) : null}
-            <ClientTripGroups
-              theme="upcoming"
-              title="Confirmed"
-              rides={confirmed}
-              onOpen={openRide}
-            />
-            <ClientTripGroups
-              theme="requests"
-              title="Waiting for driver"
-              rides={pending}
-              isExpired={isExpired}
-              dismissingIds={dismissing}
-              onOpen={openRide}
-              onDismiss={(id) => void dismissExpired(id)}
-            />
-          </>
-        )}
-      </ScrollView>
+      </View>
 
       {ratingRide ? (
         <RatingDialog
@@ -311,6 +319,12 @@ export default function ClientHome() {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.screen, paddingBottom: spacing.xl },
+  footer: {
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -321,7 +335,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   whereTo: {
     flexDirection: "row",

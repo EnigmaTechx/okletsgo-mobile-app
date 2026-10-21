@@ -43,14 +43,13 @@ const PLATE_VISIBLE = new Set<RideRequest["status"]>([
   "completed",
 ]);
 const STAR_GOLD = "#F5B301";
-const STEPS = ["Accepted", "Heading to you", "Arrived", "On trip"];
-
-/** Height of the part that stays visible when the panel is collapsed. */
-export const RIDE_PANEL_COLLAPSED_HEIGHT = 236;
+const STEPS = ["Accepted", "On the way", "Arrived", "On trip"];
 
 interface Props {
   ride: RideRequest;
   onCancel: (reason: string) => void;
+  /** Height of the headline + progress + driver block, for the collapsed panel. */
+  onHeaderLayout?: (height: number) => void;
 }
 
 /**
@@ -59,7 +58,11 @@ interface Props {
  * and their car, then (when open) the route, what you pay, and the
  * change-time / cancel actions.
  */
-export function ClientRideStatusPanel({ ride, onCancel }: Props) {
+export function ClientRideStatusPanel({
+  ride,
+  onCancel,
+  onHeaderLayout,
+}: Props) {
   const { colors } = useTheme();
   const [driver, setDriver] = useState<UserProfile | null>(null);
   const [eta, setEta] = useState<{ key: string; seconds: number } | null>(null);
@@ -142,87 +145,95 @@ export function ClientRideStatusPanel({ ride, onCancel }: Props) {
 
   return (
     <View style={styles.root}>
-      <AppText variant="title">{clientHeadline(ride, etaSeconds)}</AppText>
-
-      {/* Progress */}
-      <View style={styles.progress}>
-        <View style={styles.bars}>
-          {STEPS.map((label, i) => (
-            <View
-              key={label}
-              style={[
-                styles.bar,
-                { backgroundColor: i < step ? colors.success : colors.border },
-              ]}
-            />
-          ))}
-        </View>
-        <View style={styles.bars}>
-          {STEPS.map((label, i) => (
-            <AppText
-              key={label}
-              variant="eyebrow"
-              style={[
-                styles.stepLabel,
-                { color: i < step ? colors.success : colors.textMuted },
-              ]}
-              numberOfLines={1}
-            >
-              {label}
-            </AppText>
-          ))}
-        </View>
-      </View>
-
-      {/* Driver */}
-      <Pressable
-        accessibilityRole="button"
-        disabled={!photosVisible}
-        onPress={() => setPreviewOpen(true)}
-        style={styles.driverRow}
+      <View
+        style={styles.header}
+        onLayout={(e) => onHeaderLayout?.(e.nativeEvent.layout.height)}
       >
-        <Avatar
-          firstName={ride.driverFirstName}
-          lastName={ride.driverLastName}
-          photoUrl={photoUrl}
-          size={56}
-          tint={ride.driverId ? colors.success : colors.border}
-        />
-        <View style={styles.driverText}>
-          <View style={styles.nameRow}>
-            <AppText variant="heading" numberOfLines={1}>
-              {ride.driverFirstName || "Looking for a driver…"}
-            </AppText>
+        <AppText variant="title">{clientHeadline(ride, etaSeconds)}</AppText>
+
+        {/* Progress */}
+        <View style={styles.progress}>
+          <View style={styles.bars}>
+            {STEPS.map((label, i) => (
+              <View
+                key={label}
+                style={[
+                  styles.bar,
+                  {
+                    backgroundColor: i < step ? colors.success : colors.border,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+          <View style={styles.bars}>
+            {STEPS.map((label, i) => (
+              <AppText
+                key={label}
+                variant="smallStrong"
+                align="center"
+                style={[
+                  styles.stepLabel,
+                  { color: i < step ? colors.success : colors.textMuted },
+                ]}
+                numberOfLines={1}
+              >
+                {label}
+              </AppText>
+            ))}
+          </View>
+        </View>
+
+        {/* Driver */}
+        <Pressable
+          accessibilityRole="button"
+          disabled={!photosVisible}
+          onPress={() => setPreviewOpen(true)}
+          style={styles.driverRow}
+        >
+          <Avatar
+            firstName={ride.driverFirstName}
+            lastName={ride.driverLastName}
+            photoUrl={photoUrl}
+            size={56}
+            tint={ride.driverId ? colors.success : colors.border}
+          />
+          <View style={styles.driverText}>
+            <View style={styles.nameRow}>
+              <AppText variant="heading" numberOfLines={1}>
+                {ride.driverFirstName || "Looking for a driver…"}
+              </AppText>
+              {ride.driverId ? (
+                <View style={styles.rating}>
+                  <Ionicons name="star" size={13} color={STAR_GOLD} />
+                  <AppText variant="smallStrong" color="accent">
+                    {formatDriverRating(driver?.rating)}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
             {ride.driverId ? (
-              <View style={styles.rating}>
-                <Ionicons name="star" size={13} color={STAR_GOLD} />
-                <AppText variant="smallStrong" color="accent">
-                  {formatDriverRating(driver?.rating)}
-                </AppText>
-              </View>
+              <AppText variant="small" color="textSecondary" numberOfLines={1}>
+                {vehicleLine || "Vehicle TBD"}
+                {plateVisible ? " · " : ""}
+                {plateVisible ? (
+                  <AppText variant="smallStrong" style={styles.plate}>
+                    {ride.driverPlateNumber}
+                  </AppText>
+                ) : null}
+              </AppText>
+            ) : null}
+            {ride.driverId && !plateVisible ? (
+              <AppText variant="small" color="textMuted">
+                Plate shown once your driver heads out
+              </AppText>
             ) : null}
           </View>
-          {ride.driverId ? (
-            <AppText variant="small" color="textSecondary" numberOfLines={1}>
-              {vehicleLine || "Vehicle TBD"}
-              {plateVisible ? " · " : ""}
-              {plateVisible ? (
-                <AppText variant="smallStrong" style={styles.plate}>
-                  {ride.driverPlateNumber}
-                </AppText>
-              ) : null}
-            </AppText>
+          {vehiclePhotoUrl ? (
+            <Image source={{ uri: vehiclePhotoUrl }} style={styles.carPhoto} />
           ) : null}
-          {ride.driverId && !plateVisible ? (
-            <AppText variant="small" color="textMuted">
-              Plate shown once your driver heads out
-            </AppText>
-          ) : null}
-        </View>
-        {vehiclePhotoUrl ? (
-          <Image source={{ uri: vehiclePhotoUrl }} style={styles.carPhoto} />
-        ) : null}
-      </Pressable>
+        </Pressable>
+      </View>
 
       {pendingChange ? (
         <View
@@ -349,10 +360,13 @@ export function ClientRideStatusPanel({ ride, onCancel }: Props) {
 
 const styles = StyleSheet.create({
   root: { gap: spacing.md },
+  // The collapsed panel shows exactly this block; the route card below it
+  // starts under the fold.
+  header: { gap: spacing.md, paddingBottom: spacing.xs },
   progress: { gap: 6 },
   bars: { flexDirection: "row", gap: 6 },
   bar: { flex: 1, height: 6, borderRadius: 3 },
-  stepLabel: { flex: 1, fontSize: 10, letterSpacing: 0.3 },
+  stepLabel: { flex: 1, fontSize: 11, lineHeight: 14 },
   driverRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   driverText: { flex: 1, gap: 2 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
@@ -368,6 +382,7 @@ const styles = StyleSheet.create({
   },
   noticeText: { flex: 1 },
   card: {
+    marginTop: spacing.sm,
     padding: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.lg,
@@ -379,7 +394,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   payAmount: { alignItems: "flex-end" },
-  actions: { flexDirection: "row", gap: spacing.md },
+  actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
   half: { flex: 1 },
   preview: {
     alignItems: "center",
