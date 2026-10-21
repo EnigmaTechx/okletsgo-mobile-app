@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   accent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
-  time: { width: 64, alignItems: "center" },
+  time: { width: 68, alignItems: "center" },
   dismiss: {
     paddingHorizontal: 12,
     paddingVertical: 6,

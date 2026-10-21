@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
   },
   noticeText: { flex: 1 },
   card: {
-    marginTop: spacing.sm,
+    marginTop: spacing.lg,
     padding: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.lg,
@@ -392,9 +392,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
+    marginTop: spacing.xs,
   },
   payAmount: { alignItems: "flex-end" },
-  actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
+  actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xl },
   half: { flex: 1 },
   preview: {
     alignItems: "center",

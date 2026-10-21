@@ -229,65 +229,57 @@ export default function ClientHome() {
           the list of rides grows. */}
       <View
         style={[
-          styles.footer,
-          { backgroundColor: colors.background, borderTopColor: colors.border },
+          styles.bookBar,
+          {
+            backgroundColor: colors.surfaceRaised,
+            borderTopColor: colors.border,
+          },
         ]}
       >
-        <View
-          style={[
-            styles.bookCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+        <Pressable
+          accessibilityRole="button"
+          onPress={startBooking}
+          style={({ pressed }) => [
+            styles.whereTo,
+            {
+              backgroundColor: colors.background,
+              borderColor: pressed ? colors.primary : colors.border,
+            },
           ]}
         >
-          <Pressable
-            accessibilityRole="button"
-            onPress={startBooking}
-            style={({ pressed }) => [
-              styles.whereTo,
-              {
-                backgroundColor: colors.background,
-                borderColor: pressed ? colors.primary : colors.border,
-              },
-            ]}
+          <Ionicons name="search" size={20} color={colors.primary} />
+          <AppText variant="heading" color="textSecondary">
+            Where are we going?
+          </AppText>
+        </Pressable>
+        {savedPlaces.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chips}
           >
-            <Ionicons name="search" size={20} color={colors.primary} />
-            <AppText variant="heading" color="textSecondary">
-              Where are we going?
-            </AppText>
-          </Pressable>
-          {savedPlaces.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chips}
-            >
-              {savedPlaces.slice(0, 6).map((p) => (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Book a ride to ${p.label}`}
-                  onPress={() => bookTo(p)}
-                  style={({ pressed }) => [
-                    styles.chip,
-                    {
-                      backgroundColor: pressed
-                        ? colors.surfaceRaised
-                        : colors.background,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name="bookmark"
-                    size={14}
-                    color={colors.secondary}
-                  />
-                  <AppText variant="smallStrong">{p.label}</AppText>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
-        </View>
+            {savedPlaces.slice(0, 6).map((p) => (
+              <Pressable
+                key={p.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Book a ride to ${p.label}`}
+                onPress={() => bookTo(p)}
+                style={({ pressed }) => [
+                  styles.chip,
+                  {
+                    backgroundColor: pressed
+                      ? colors.surfaceRaised
+                      : colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons name="bookmark" size={14} color={colors.secondary} />
+                <AppText variant="smallStrong">{p.label}</AppText>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
       </View>
 
       {ratingRide ? (
@@ -319,23 +311,20 @@ export default function ClientHome() {
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.screen, paddingBottom: spacing.xl },
-  footer: {
+  // Edge to edge, on the raised ground, so it reads as a separate bar
+  // rather than one more card in the list.
+  bookBar: {
     paddingHorizontal: spacing.screen,
     paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
+    gap: spacing.sm,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: spacing.lg,
-  },
-  bookCard: {
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.sm,
   },
   whereTo: {
     flexDirection: "row",

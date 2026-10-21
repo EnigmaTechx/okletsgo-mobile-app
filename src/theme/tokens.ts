@@ -110,23 +110,25 @@ export const fontFamily = {
 } as const;
 
 export const typography = {
+  // One step up from the mockups' sizes for readability; layouts were
+  // checked against the wider screens of the trip rows and the live panel.
   display: {
     fontFamily: fontFamily.extrabold,
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 32,
+    lineHeight: 36,
     letterSpacing: -0.3,
   },
   title: {
     fontFamily: fontFamily.extrabold,
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 25,
+    lineHeight: 30,
     letterSpacing: -0.2,
   },
-  heading: { fontFamily: fontFamily.extrabold, fontSize: 19, lineHeight: 24 },
-  body: { fontFamily: fontFamily.medium, fontSize: 15, lineHeight: 22 },
-  bodyStrong: { fontFamily: fontFamily.bold, fontSize: 15, lineHeight: 22 },
-  small: { fontFamily: fontFamily.medium, fontSize: 13, lineHeight: 18 },
-  smallStrong: { fontFamily: fontFamily.bold, fontSize: 13, lineHeight: 18 },
+  heading: { fontFamily: fontFamily.extrabold, fontSize: 20, lineHeight: 26 },
+  body: { fontFamily: fontFamily.medium, fontSize: 16, lineHeight: 23 },
+  bodyStrong: { fontFamily: fontFamily.bold, fontSize: 16, lineHeight: 23 },
+  small: { fontFamily: fontFamily.medium, fontSize: 14, lineHeight: 20 },
+  smallStrong: { fontFamily: fontFamily.bold, fontSize: 14, lineHeight: 20 },
   eyebrow: {
     fontFamily: fontFamily.extrabold,
     fontSize: 12,
@@ -134,7 +136,7 @@ export const typography = {
     letterSpacing: 1.4,
   },
   button: { fontFamily: fontFamily.extrabold, fontSize: 18, lineHeight: 22 },
-  tab: { fontFamily: fontFamily.bold, fontSize: 11, lineHeight: 14 },
+  tab: { fontFamily: fontFamily.bold, fontSize: 12, lineHeight: 15 },
 } as const;
 
 /** Touch targets never go below this (Play and App Store guidance). */
