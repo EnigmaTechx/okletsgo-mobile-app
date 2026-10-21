@@ -7,10 +7,7 @@ import {
   type RideMapHandle,
   type RouteLine,
 } from "../../../components/map/RideMap";
-import {
-  ClientRideStatusPanel,
-  RIDE_PANEL_COLLAPSED_HEIGHT,
-} from "../../../components/rides/ClientRideStatusPanel";
+import { ClientRideStatusPanel } from "../../../components/rides/ClientRideStatusPanel";
 import {
   RideOutcomeDialog,
   type RideOutcome,
@@ -36,6 +33,9 @@ import { cad } from "../../../utils/money";
 import { rideOutcomeShownKey, sessionFlag } from "../../../utils/sessionFlags";
 import { radius, spacing } from "../../../theme/tokens";
 
+/** Handle area + content top padding inside DraggablePanel. */
+const PANEL_CHROME_HEIGHT = 32;
+
 /**
  * The rider's live view of one ride: a full-screen map with the route and
  * the driver's car, and a draggable panel with status, driver, route and
@@ -59,6 +59,11 @@ export default function LiveRide() {
   const [outcome, setOutcome] = useState<RideOutcome | null>(null);
   const completionHandled = useRef(false);
   const [stableDriver, setStableDriver] = useState<LatLng | null>(null);
+  // Measured from the panel's headline + progress + driver block, so the
+  // collapsed sheet shows exactly that and nothing half-cut beneath it.
+  const [headerHeight, setHeaderHeight] = useState(176);
+  const collapsedHeight =
+    PANEL_CHROME_HEIGHT + headerHeight + insets.bottom + spacing.lg;
 
   const { location: me } = useGeolocation(true);
 
@@ -232,7 +237,7 @@ export default function LiveRide() {
         frame={[pickup, dropoff, completed ? null : stableDriver].filter(
           (p): p is LatLng => !!p,
         )}
-        bottomPadding={RIDE_PANEL_COLLAPSED_HEIGHT}
+        bottomPadding={collapsedHeight}
       />
 
       {ride.couponCode && !completed ? (
@@ -259,7 +264,7 @@ export default function LiveRide() {
       </View>
 
       <DraggablePanel
-        collapsedHeight={RIDE_PANEL_COLLAPSED_HEIGHT + insets.bottom}
+        collapsedHeight={collapsedHeight}
         expandedHeight={expandedHeight}
         expanded={expanded}
         onExpandedChange={setExpanded}
@@ -289,6 +294,7 @@ export default function LiveRide() {
           <ClientRideStatusPanel
             ride={ride}
             onCancel={(r) => void handleCancel(r)}
+            onHeaderLayout={setHeaderHeight}
           />
         )}
       </DraggablePanel>

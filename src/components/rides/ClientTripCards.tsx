@@ -3,7 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../contexts/ThemeContext";
 import type { RideRequest } from "../../interfaces/ride";
 import { firstLine, timeParts } from "../../utils/address";
-import { formatKm } from "../../utils/geo";
 import { groupRidesByDay, upcomingDayLabel } from "../../utils/rideDayGroups";
 import { timeUntil } from "../../utils/timeUntil";
 import { radius, spacing } from "../../theme/tokens";
@@ -158,7 +157,6 @@ export function ClientTripRow({
 }) {
   const { colors } = useTheme();
   const [time, ampm] = timeParts(ride.scheduledTime);
-  const km = Number(ride.distance);
   const accent = expired
     ? colors.textMuted
     : theme === "requests"
@@ -183,17 +181,19 @@ export function ClientTripRow({
         <AppText variant="heading" numberOfLines={1}>
           {time}
         </AppText>
-        <AppText variant="eyebrow" color="textMuted">
+        <AppText variant="smallStrong" color="textMuted">
           {ampm}
         </AppText>
       </View>
       <View style={styles.rowText}>
         <AppText variant="bodyStrong" numberOfLines={1}>
-          {expired ? "No driver found" : ride.driverFirstName || "Your driver"}
+          {expired ? "Request expired" : ride.driverFirstName || "Your driver"}
         </AppText>
-        {theme === "requests" && !expired ? (
-          <AppText variant="small" color="accent">
-            Waiting to accept
+        {theme === "requests" ? (
+          <AppText variant="small" color={expired ? "textMuted" : "accent"}>
+            {expired
+              ? `${ride.driverFirstName || "The driver"} didn't accept in time`
+              : "Waiting to accept"}
           </AppText>
         ) : null}
         <AppText variant="small" color="textMuted" numberOfLines={1}>
@@ -208,24 +208,18 @@ export function ClientTripRow({
             onPress={() => onDismiss(ride.id as string)}
             hitSlop={8}
             disabled={dismissing}
+            style={[styles.dismiss, { borderColor: colors.border }]}
           >
             {dismissing ? (
               <ActivityIndicator color={colors.textMuted} />
             ) : (
-              <AppText variant="smallStrong" color="textSecondary">
+              <AppText variant="smallStrong" color="text">
                 Dismiss
               </AppText>
             )}
           </Pressable>
         ) : (
-          <>
-            <AppText variant="bodyStrong">{price(ride)}</AppText>
-            {Number.isFinite(km) && km > 0 ? (
-              <AppText variant="small" color="textMuted">
-                {formatKm(km)}
-              </AppText>
-            ) : null}
-          </>
+          <AppText variant="bodyStrong">{price(ride)}</AppText>
         )}
       </View>
     </Pressable>
@@ -347,6 +341,12 @@ const styles = StyleSheet.create({
   },
   accent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
   time: { width: 64, alignItems: "center" },
+  dismiss: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
   rowText: { flex: 1, gap: 1 },
   meta: { alignItems: "flex-end", gap: 1, minWidth: 56 },
 });

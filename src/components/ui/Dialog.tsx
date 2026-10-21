@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
 import { radius, spacing } from "../../theme/tokens";
+import { useOverlayOpen } from "./overlayState";
 
 interface Props {
   visible: boolean;
@@ -26,6 +27,7 @@ interface Props {
  */
 export function Dialog({ visible, onClose, children }: Props) {
   const { colors } = useTheme();
+  useOverlayOpen(visible);
   return (
     <Modal
       visible={visible}

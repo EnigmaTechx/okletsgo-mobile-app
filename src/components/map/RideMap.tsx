@@ -157,7 +157,7 @@ export const RideMap = forwardRef<RideMapHandle, Props>(function RideMap(
         style={StyleSheet.absoluteFill}
         provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
         initialRegion={region(initial, 0.03)}
-        customMapStyle={scheme === "dark" ? DARK_MAP_STYLE : undefined}
+        customMapStyle={scheme === "dark" ? DARK_MAP_STYLE : []}
         userInterfaceStyle={scheme}
         scrollEnabled={interactive}
         zoomEnabled={interactive}
