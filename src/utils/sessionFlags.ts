@@ -17,3 +17,6 @@ export const sessionFlag = {
 export const ratingNudgedKey = (rideId: string) => `ratingNudged:${rideId}`;
 export const rideOutcomeShownKey = (rideId: string) =>
   `rideOutcomeShown:${rideId}`;
+/** The "You've arrived" screen for a ride has been shown this session. */
+export const tripCompleteShownKey = (rideId: string) =>
+  `tripCompleteShown:${rideId}`;

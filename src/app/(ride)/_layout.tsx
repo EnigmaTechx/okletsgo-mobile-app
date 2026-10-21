@@ -45,6 +45,10 @@ export default function RideLayout() {
         />
         <Stack.Screen name="live/[id]" options={{ headerShown: false }} />
         <Stack.Screen
+          name="complete/[id]"
+          options={{ headerShown: false, gestureEnabled: false }}
+        />
+        <Stack.Screen
           name="places/index"
           options={{ title: "Saved addresses" }}
         />
