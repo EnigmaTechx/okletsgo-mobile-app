@@ -24,6 +24,7 @@ export default function CommonLayout() {
       <Stack.Screen name="profile" options={{ title: "Edit profile" }} />
       <Stack.Screen name="terms" options={{ title: "Terms of Use" }} />
       <Stack.Screen name="support" options={{ title: "Help & Support" }} />
+      <Stack.Screen name="history/[id]" options={{ title: "Trip details" }} />
     </Stack>
   );
 }

@@ -23,6 +23,7 @@ import { useUpdateGate } from "../services/appUpdateService";
 import { canAccessAdminSection } from "../config/appRoles";
 import { UpdateRequired } from "../components/UpdateRequired";
 import { LoadingScreen } from "../components/ui/LoadingScreen";
+import { ToastProvider } from "../components/ui/Toast";
 
 // Keep the native splash up until fonts, the stored theme and auth have
 // resolved, so the first frame is already the right screen in the right colours.
@@ -43,11 +44,13 @@ export default function RootLayout() {
   return (
     <KeyboardProvider>
       <ThemeProvider>
-        <AuthProvider>
-          <FeatureFlagsProvider>
-            <RootNavigator fontsLoaded={fontsLoaded} />
-          </FeatureFlagsProvider>
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <FeatureFlagsProvider>
+              <RootNavigator fontsLoaded={fontsLoaded} />
+            </FeatureFlagsProvider>
+          </AuthProvider>
+        </ToastProvider>
       </ThemeProvider>
     </KeyboardProvider>
   );
@@ -124,6 +127,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         </Stack.Protected>
         <Stack.Protected guard={isClient}>
           <Stack.Screen name="(client)" />
+          <Stack.Screen name="(ride)" />
         </Stack.Protected>
         <Stack.Protected guard={isDriver}>
           <Stack.Screen name="(driver)" />
