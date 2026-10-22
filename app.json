@@ -13,7 +13,11 @@
       "supportsTablet": false,
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "location",
+          "remote-notification"
+        ]
       },
       "buildNumber": "35"
     },
@@ -43,12 +47,17 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "OK Let's Go uses your location to suggest your pickup point and to show you on the map while a driver is on the way.",
-          "isAndroidBackgroundLocationEnabled": false
+          "locationWhenInUsePermission": "OK Let's Go uses your location to suggest your pickup point, show you on the map while a driver is on the way, and, for drivers, to share your live position with the rider during a trip.",
+          "locationAlwaysAndWhenInUsePermission": "During a trip, OK Let's Go shares your live location with your rider even when the app is in the background, so they can follow you to pickup and drop-off. Tracking stops when the trip ends.",
+          "locationAlwaysPermission": "During a trip, OK Let's Go shares your live location with your rider even when the app is in the background. Tracking stops when the trip ends.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
+      "@react-native-firebase/messaging",
       [
         "expo-build-properties",
         {
@@ -68,7 +77,15 @@
             "backgroundColor": "#0B1220"
           }
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#F14B1C",
+          "defaultChannel": "ride_updates"
+        }
+      ],
+      "expo-task-manager"
     ],
     "experiments": {
       "typedRoutes": true,

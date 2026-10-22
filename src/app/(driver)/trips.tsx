@@ -1,6 +1,5 @@
-import React from "react";
-import { PlaceholderScreen } from "../../components/PlaceholderScreen";
+import { TripsHistory } from "../../components/rides/TripsHistory";
 
 export default function DriverTrips() {
-  return <PlaceholderScreen title="Trips" phase={3} />;
+  return <TripsHistory role="driver" />;
 }
