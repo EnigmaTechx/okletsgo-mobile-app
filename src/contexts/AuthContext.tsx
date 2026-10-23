@@ -31,6 +31,7 @@ import {
   clearRegistrationActive,
   clearOtpSession,
 } from "../services/authService";
+import { forgetPushToken } from "../services/pushService";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -125,12 +126,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     clearOtpSession();
     // Detach this device's push token from the account being signed out, so
     // the next user on this device doesn't receive this account's
-    // notifications. (Push registration itself lands in phase 3.)
+    // notifications (registerFcmToken re-dedupes on the next sign-in too).
     try {
       const uid = auth.currentUser?.uid;
       if (uid) {
         await updateDoc(doc(db, "users", uid), { fcmToken: deleteField() });
       }
+      await forgetPushToken();
     } catch (err) {
       console.warn("Failed to clear push token on logout:", err);
     }

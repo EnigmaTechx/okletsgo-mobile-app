@@ -180,6 +180,7 @@ export function AccountScreen() {
             label="Vehicle"
             detail={vehicleLabel ?? "Not set"}
             value={vehicle?.plateNumber}
+            onPress={() => router.push("/(drive)/vehicle")}
           />
         ) : (
           <MenuRow

@@ -24,6 +24,7 @@ import { canAccessAdminSection } from "../config/appRoles";
 import { UpdateRequired } from "../components/UpdateRequired";
 import { LoadingScreen } from "../components/ui/LoadingScreen";
 import { ToastProvider } from "../components/ui/Toast";
+import { PushNotifications } from "../components/PushNotifications";
 
 // Keep the native splash up until fonts, the stored theme and auth have
 // resolved, so the first frame is already the right screen in the right colours.
@@ -115,6 +116,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   return (
     <NavigationThemeProvider value={navTheme}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      {isClient || isDriver ? <PushNotifications /> : null}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -131,6 +133,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         </Stack.Protected>
         <Stack.Protected guard={isDriver}>
           <Stack.Screen name="(driver)" />
+          <Stack.Screen name="(drive)" />
         </Stack.Protected>
         <Stack.Protected guard={isClient || isDriver}>
           <Stack.Screen name="(common)" />
