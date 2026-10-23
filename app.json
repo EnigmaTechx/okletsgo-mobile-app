@@ -78,6 +78,7 @@
           }
         }
       ],
+      "./plugins/withMessagingManifestFix.js",
       [
         "expo-notifications",
         {

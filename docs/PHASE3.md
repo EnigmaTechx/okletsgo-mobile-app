@@ -27,7 +27,10 @@ Functions as the Ionic app. Nothing changes server-side.
 | `expo-keep-awake` | screen stays on while online |
 
 After pulling: `npm install`, then `npx expo prebuild --platform android --clean`
-and `npx expo run:android`. Android 13+ asks for notification permission on
+and `npx expo run:android`. `plugins/withMessagingManifestFix.js` (listed
+just before `expo-notifications` in `app.json`) marks the FCM channel and
+colour meta-data with `tools:replace`; without it the manifest merger
+rejects the duplicate entries from the messaging library. Android 13+ asks for notification permission on
 first sign-in; Android 10+ asks for background location only after the
 in-app disclosure is accepted on the first trip.
 
