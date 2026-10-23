@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../contexts/ThemeContext";
 import type { RideRequest } from "../../interfaces/ride";
 import { formatDayAndTime } from "../../utils/address";
@@ -171,7 +170,6 @@ function Fact({
       >
         {value}
       </AppText>
-      <Ionicons name="ellipse" size={0} />
     </View>
   );
 }

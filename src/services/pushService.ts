@@ -48,7 +48,8 @@ async function ensureChannel(): Promise<void> {
     name: "Ride Updates",
     description: "Notifications about your ride status",
     importance: Notifications.AndroidImportance.MAX,
-    sound: "default",
+    // No `sound`: the system default. A string here names a bundled custom
+    // sound file, and "default" is not one.
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
 }
@@ -130,7 +131,7 @@ export function listenForPushes(onOpen: (data: PushData) => void): () => void {
           title: message.notification?.title ?? "OK Let's Go",
           body: message.notification?.body ?? "You have a new update.",
           data: { ...data },
-          sound: "default",
+          sound: true,
         },
         trigger:
           Platform.OS === "android"

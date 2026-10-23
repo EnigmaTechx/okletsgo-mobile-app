@@ -1,0 +1,28 @@
+name: EAS development build
+
+# Development build for testers on every merge to dev. Needs an EXPO_TOKEN
+# repository secret (Expo account → Access tokens) and the repository
+# variable EAS_BUILDS_ENABLED set to "true" (Settings → Secrets and variables
+# → Actions → Variables); until then the whole workflow stays off. Lives in
+# its own file so it never appears as a skipped check on pull requests.
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  eas-dev-build:
+    name: EAS development build
+    if: vars.EAS_BUILDS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: eas build --platform all --profile development --non-interactive --no-wait
