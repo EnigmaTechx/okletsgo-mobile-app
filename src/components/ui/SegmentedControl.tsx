@@ -38,6 +38,9 @@ export function SegmentedControl<T extends string>({
           >
             <AppText
               variant="smallStrong"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
               style={{
                 color: active ? colors.onPrimary : colors.textSecondary,
               }}
@@ -62,6 +65,7 @@ const styles = StyleSheet.create({
   segment: {
     flex: 1,
     minHeight: 36,
+    paddingHorizontal: 6,
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",

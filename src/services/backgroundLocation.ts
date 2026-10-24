@@ -75,7 +75,9 @@ export async function startTripTracking(rideId: string): Promise<boolean> {
     foregroundService: {
       notificationTitle: "Active ride — location tracking on",
       notificationBody: "Tap to return to OK Let's Go!",
-      notificationColor: "#F14B1C",
+      // Android colourises foreground-service notifications with this; the
+      // brand orange was too loud there, so the car blue.
+      notificationColor: "#2B8BC8",
     },
   });
   return true;

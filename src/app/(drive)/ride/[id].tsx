@@ -20,6 +20,7 @@ import { Button } from "../../../components/ui/Button";
 import { DraggablePanel } from "../../../components/ui/DraggablePanel";
 import { IconButton } from "../../../components/ui/IconButton";
 import { LoadingScreen } from "../../../components/ui/LoadingScreen";
+import { ProcessingOverlay } from "../../../components/ui/ProcessingOverlay";
 import { showAlert } from "../../../components/ui/alerts";
 import { useToast } from "../../../components/ui/Toast";
 import { useTheme } from "../../../contexts/ThemeContext";
@@ -162,6 +163,7 @@ export default function DriverRide() {
   const accept = async () => {
     if (!ride?.id) return;
     setAccepting(true);
+    setBusy("Accepting ride…");
     try {
       await respondToRide(ride.id, "accept");
     } catch (err) {
@@ -172,6 +174,7 @@ export default function DriverRide() {
       );
     } finally {
       setAccepting(false);
+      setBusy(null);
     }
   };
 
@@ -326,13 +329,7 @@ export default function DriverRide() {
         )}
       </DraggablePanel>
 
-      {busy ? (
-        <View style={[styles.busy, { backgroundColor: colors.backdrop }]}>
-          <AppText variant="bodyStrong" style={{ color: "#FFFFFF" }}>
-            {busy}
-          </AppText>
-        </View>
-      ) : null}
+      <ProcessingOverlay visible={!!busy} message={busy ?? ""} />
     </View>
   );
 }
@@ -344,14 +341,5 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.lg,
     alignItems: "stretch",
-  },
-  busy: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

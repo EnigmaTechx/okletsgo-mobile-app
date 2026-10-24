@@ -17,6 +17,7 @@ import { AppText } from "../../../components/ui/AppText";
 import { DraggablePanel } from "../../../components/ui/DraggablePanel";
 import { IconButton } from "../../../components/ui/IconButton";
 import { LoadingScreen } from "../../../components/ui/LoadingScreen";
+import { ProcessingOverlay } from "../../../components/ui/ProcessingOverlay";
 import { useToast } from "../../../components/ui/Toast";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
@@ -306,13 +307,7 @@ export default function LiveRide() {
         )}
       </DraggablePanel>
 
-      {cancelling ? (
-        <View style={[styles.busy, { backgroundColor: colors.backdrop }]}>
-          <AppText variant="bodyStrong" style={{ color: "#FFFFFF" }}>
-            Cancelling your ride…
-          </AppText>
-        </View>
-      ) : null}
+      <ProcessingOverlay visible={cancelling} message="Cancelling your ride…" />
 
       {outcomeDialog}
     </View>
@@ -333,14 +328,5 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
-  },
-  busy: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
