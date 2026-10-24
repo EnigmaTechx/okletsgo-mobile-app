@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import {
   AuthorizationStatus,
@@ -114,6 +115,41 @@ const dataOf = (m: RemoteMessage | null | undefined): PushData => {
 };
 
 /**
+ * Taps already routed, so the "which notification opened the app" APIs
+ * cannot replay one. Both keep answering with the same notification for
+ * as long as the task lives: Android re-delivers the launch intent when it
+ * recreates the activity (returning from another app after the process was
+ * dropped), and expo's last response is simply the last tap ever made. Each
+ * tap is routed once, by id, across launches.
+ */
+const HANDLED_KEY = "okletsgo.handledPushIds";
+const HANDLED_MAX = 20;
+
+async function claimTap(id: string | undefined): Promise<boolean> {
+  if (!id) return true;
+  try {
+    const raw = await AsyncStorage.getItem(HANDLED_KEY);
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    if (ids.includes(id)) return false;
+    ids.push(id);
+    await AsyncStorage.setItem(
+      HANDLED_KEY,
+      JSON.stringify(ids.slice(-HANDLED_MAX)),
+    );
+  } catch {
+    // Storage trouble: route rather than swallow a real tap.
+  }
+  return true;
+}
+
+const remoteId = (m: RemoteMessage): string | undefined =>
+  m.messageId ??
+  (m.sentTime ? `${dataOf(m).rideId ?? "?"}:${m.sentTime}` : undefined);
+
+const localId = (r: Notifications.NotificationResponse): string =>
+  `local:${r.notification.request.identifier}`;
+
+/**
  * Wire up the three app states. Returns an unsubscribe.
  *  - foreground: the push arrives as data; re-show it as a local banner
  *    (trip reminders are skipped: the driver is already in the app),
@@ -141,30 +177,38 @@ export function listenForPushes(onOpen: (data: PushData) => void): () => void {
     }),
   );
 
+  let live = true;
+  const openRemote = async (m: RemoteMessage | null) => {
+    if (!m) return;
+    const data = dataOf(m);
+    if (!data.rideId) return;
+    if ((await claimTap(remoteId(m))) && live) onOpen(data);
+  };
+  const openLocal = async (r: Notifications.NotificationResponse | null) => {
+    const data = r?.notification.request.content.data as PushData | undefined;
+    if (!r || !data?.rideId) return;
+    if ((await claimTap(localId(r))) && live) onOpen(data);
+  };
+
   // Tap on a foreground banner we scheduled.
   const response = Notifications.addNotificationResponseReceivedListener(
-    (r) => {
-      const d = r.notification.request.content.data as PushData | undefined;
-      if (d?.rideId) onOpen(d);
-    },
+    (r) => void openLocal(r),
   );
   subs.push(() => response.remove());
 
   // Tap on an OS-displayed push while backgrounded.
-  subs.push(onNotificationOpenedApp(messaging, (m) => onOpen(dataOf(m))));
+  subs.push(onNotificationOpenedApp(messaging, (m) => void openRemote(m)));
 
-  // Cold start from a push.
+  // Cold start from a push: routed once per tap, see claimTap.
   getInitialNotification(messaging)
-    .then((m) => {
-      if (m) onOpen(dataOf(m));
-    })
+    .then(openRemote)
     .catch(() => undefined);
   Notifications.getLastNotificationResponseAsync()
-    .then((r) => {
-      const d = r?.notification.request.content.data as PushData | undefined;
-      if (d?.rideId) onOpen(d);
-    })
+    .then(openLocal)
     .catch(() => undefined);
 
+  subs.push(() => {
+    live = false;
+  });
   return () => subs.forEach((u) => u());
 }

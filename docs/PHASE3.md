@@ -5,26 +5,26 @@ Functions as the Ionic app. Nothing changes server-side.
 
 ## What landed
 
-| Area | Screen / module | Ionic source |
-| --- | --- | --- |
-| Dashboard | `(driver)/index` | `pages/driver/Dashboard.tsx` + `DashboardTrips.tsx` |
+| Area                              | Screen / module                                                    | Ionic source                                                     |
+| --------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Dashboard                         | `(driver)/index`                                                   | `pages/driver/Dashboard.tsx` + `DashboardTrips.tsx`              |
 | Ride page (request + active trip) | `(drive)/ride/[id]` with `IncomingRequestPanel`, `ActiveRidePanel` | `DriverRideDetails`, `IncomingRequestCard`, `ActiveRideControls` |
-| Time-change review | `components/drive/TimeChangeReviewCard` | `TimeChangeReviewCard` |
-| Background location | `services/backgroundLocation.ts` | `@capacitor-community/background-geolocation` watcher |
-| Push notifications | `services/pushService.ts`, `components/PushNotifications.tsx` | `hooks/useAppPermissions.ts` |
-| Trips (history) | `(driver)/trips` via the shared `TripsHistory` | `RideHistory` |
-| Earnings | `(driver)/earnings` (flag `driver_earnings`) | `DriverEarnings` |
-| Vehicle change | `(drive)/vehicle` | `DriverProfileSettings` (vehicle section) |
+| Time-change review                | `components/drive/TimeChangeReviewCard`                            | `TimeChangeReviewCard`                                           |
+| Background location               | `services/backgroundLocation.ts`                                   | `@capacitor-community/background-geolocation` watcher            |
+| Push notifications                | `services/pushService.ts`, `components/PushNotifications.tsx`      | `hooks/useAppPermissions.ts`                                     |
+| Trips (history)                   | `(driver)/trips` via the shared `TripsHistory`                     | `RideHistory`                                                    |
+| Earnings                          | `(driver)/earnings` (flag `driver_earnings`)                       | `DriverEarnings`                                                 |
+| Vehicle change                    | `(drive)/vehicle`                                                  | `DriverProfileSettings` (vehicle section)                        |
 
 ## Native modules added (prebuild needed)
 
-| Package | Why |
-| --- | --- |
-| `@react-native-firebase/messaging` (was a dependency; now a plugin) | FCM token and push delivery |
-| `expo-notifications` | "ride_updates" channel, foreground banners, tap handling |
-| `expo-task-manager` | the background location task |
-| `expo-location` (background options turned on) | foreground service on Android, "Always" on iOS |
-| `expo-keep-awake` | screen stays on while online |
+| Package                                                             | Why                                                      |
+| ------------------------------------------------------------------- | -------------------------------------------------------- |
+| `@react-native-firebase/messaging` (was a dependency; now a plugin) | FCM token and push delivery                              |
+| `expo-notifications`                                                | "ride_updates" channel, foreground banners, tap handling |
+| `expo-task-manager`                                                 | the background location task                             |
+| `expo-location` (background options turned on)                      | foreground service on Android, "Always" on iOS           |
+| `expo-keep-awake`                                                   | screen stays on while online                             |
 
 After pulling: `npm install`, then `npx expo prebuild --platform android --clean`
 and `npx expo run:android`. `plugins/withMessagingManifestFix.js` (listed
@@ -68,6 +68,11 @@ in-app disclosure is accepted on the first trip.
   reminders are skipped in the foreground, as before).
 - A tap routes by the ride document: cancelled or completed → history;
   driver's ride → `(drive)/ride/[id]`; rider's ride → `(ride)/live/[id]`.
+- Each tap is routed once: handled notification ids are kept in
+  AsyncStorage, because `getInitialNotification` (Android re-delivers the
+  launch intent whenever it recreates the activity) and
+  `getLastNotificationResponseAsync` keep returning an old tap and would
+  otherwise reopen a finished ride on every return to the app.
 - iOS needs the APNs key uploaded to the Firebase project and the push
   capability on the App Store identifier; the messaging plugin adds the
   entitlement and background mode.
