@@ -77,6 +77,15 @@ in-app disclosure is accepted on the first trip.
   capability on the App Store identifier; the messaging plugin adds the
   entitlement and background mode.
 
+## Patched dependency
+
+`patches/react-native-screens+4.26.2.patch` (applied by `patch-package` on
+`postinstall`) carries one upstream Android fix: a header-config update on
+a screen already detached from its stack threw
+`IllegalStateException: ScreenStackFragment added into a non-stack
+container` (react-native-screens issue 4429, fixed in 4.29.0). Expo SDK 57
+pins `~4.26.0`; drop the patch once the SDK moves to 4.29 or later.
+
 ## Not in this phase
 
 - Driver profile photo and vehicle photo (phase 5, with the rider's).
