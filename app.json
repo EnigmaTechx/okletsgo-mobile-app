@@ -55,7 +55,14 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "@react-native-firebase/app",
+      [
+        "@react-native-firebase/app",
+        {
+          "ios": {
+            "disableSPM": true
+          }
+        }
+      ],
       "@react-native-firebase/auth",
       "@react-native-firebase/messaging",
       [
@@ -82,6 +89,7 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/images/notification-icon.png",
           "color": "#F14B1C",
           "defaultChannel": "ride_updates"
         }
