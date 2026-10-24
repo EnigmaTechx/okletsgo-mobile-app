@@ -149,6 +149,8 @@ const remoteId = (m: RemoteMessage): string | undefined =>
 const localId = (r: Notifications.NotificationResponse): string =>
   `local:${r.notification.request.identifier}`;
 
+let coldStartChecked = false;
+
 /**
  * Wire up the three app states. Returns an unsubscribe.
  *  - foreground: the push arrives as data; re-show it as a local banner
@@ -199,13 +201,17 @@ export function listenForPushes(onOpen: (data: PushData) => void): () => void {
   // Tap on an OS-displayed push while backgrounded.
   subs.push(onNotificationOpenedApp(messaging, (m) => void openRemote(m)));
 
-  // Cold start from a push: routed once per tap, see claimTap.
-  getInitialNotification(messaging)
-    .then(openRemote)
-    .catch(() => undefined);
-  Notifications.getLastNotificationResponseAsync()
-    .then(openLocal)
-    .catch(() => undefined);
+  // Cold start from a push: asked once per process (a remount, e.g. after
+  // the profile reloads, is not a launch) and routed once per tap.
+  if (!coldStartChecked) {
+    coldStartChecked = true;
+    getInitialNotification(messaging)
+      .then(openRemote)
+      .catch(() => undefined);
+    Notifications.getLastNotificationResponseAsync()
+      .then(openLocal)
+      .catch(() => undefined);
+  }
 
   subs.push(() => {
     live = false;
