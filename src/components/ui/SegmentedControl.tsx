@@ -36,14 +36,18 @@ export function SegmentedControl<T extends string>({
               active ? { backgroundColor: colors.primary } : null,
             ]}
           >
+            {/* Full width + centred rather than auto-shrunk: on Android,
+                adjustsFontSizeToFit re-measures on every re-render and can
+                drop the second word of "This week" once the segment is
+                selected. */}
             <AppText
               variant="smallStrong"
               numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.85}
-              style={{
-                color: active ? colors.onPrimary : colors.textSecondary,
-              }}
+              align="center"
+              style={[
+                styles.label,
+                { color: active ? colors.onPrimary : colors.textSecondary },
+              ]}
             >
               {o.label}
             </AppText>
@@ -65,9 +69,11 @@ const styles = StyleSheet.create({
   segment: {
     flex: 1,
     minHeight: 36,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     borderRadius: radius.sm,
-    alignItems: "center",
     justifyContent: "center",
+  },
+  label: {
+    width: "100%",
   },
 });
