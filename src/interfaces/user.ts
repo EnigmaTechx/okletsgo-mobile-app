@@ -49,6 +49,15 @@ export interface UserProfile {
   // function on each completed trip) — the basis for promos/discounts.
   totalKmTravelled?: number;
 
+  // Km rewards: how many banked credits (one per `kmPerCredit` km of
+  // totalKmTravelled) this rider has spent. Written only by the
+  // redeemKmReward function; the rules reject a self-write.
+  rewardKmRedeemed?: number;
+
+  // Promotions dismissed or used, by promo id → ISO timestamp. Stored on the
+  // account so a reinstall or a second phone never shows a pop-up twice.
+  promoSeen?: Record<string, string>;
+
   // ISO timestamp set when the client dismissed the one-time v1.3.7
   // "fresh start" notice — stored per account so a reinstall or a second
   // device never shows it again.

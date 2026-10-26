@@ -47,7 +47,13 @@ const input = {
 describe("booking document", () => {
   it("keeps the full fare on estimatedPrice and discounts the client total", () => {
     const ride = buildRideRequest(
-      { ...input, coupon: { code: "WELCOME", discountAmount: 50 } },
+      {
+        ...input,
+        promo: {
+          kind: "coupon",
+          coupon: { code: "WELCOME", discountAmount: 50 },
+        },
+      },
       "2026-10-21T00:00:00.000Z",
     );
     expect(ride.estimatedPrice).toBe(8.7);
@@ -61,6 +67,39 @@ describe("booking document", () => {
     expect(ride.status).toBe("pending");
   });
 
+  it("writes the welcome gift as its hidden coupon, without a promoId", () => {
+    const ride = buildRideRequest(
+      {
+        ...input,
+        promo: {
+          kind: "welcome",
+          promoId: "welcome-2026",
+          couponCode: "WELCOME10KM",
+          maxFreeKm: 10,
+          discountAmount: 8.7,
+        },
+      },
+      "2026-10-21T00:00:00.000Z",
+    );
+    expect(ride.couponCode).toBe("WELCOME10KM");
+    expect(ride.discountAmount).toBe(8.7);
+    expect(ride.totalClientCharge).toBe(1.5);
+    expect(ride).not.toHaveProperty("promoId");
+  });
+
+  it("writes a km credit without a coupon code", () => {
+    const ride = buildRideRequest(
+      {
+        ...input,
+        promo: { kind: "km_reward", creditKm: 10, discountAmount: 8.7 },
+      },
+      "2026-10-21T00:00:00.000Z",
+    );
+    expect(ride).not.toHaveProperty("couponCode");
+    expect(ride.discountAmount).toBe(8.7);
+    expect(ride).not.toHaveProperty("kmRewardApplied");
+  });
+
   it("omits coupon fields when none is applied", () => {
     const ride = buildRideRequest(input, "2026-10-21T00:00:00.000Z");
     expect(ride).not.toHaveProperty("couponCode");
@@ -68,7 +107,12 @@ describe("booking document", () => {
   });
 
   it("caps the discount and floors the total", () => {
-    expect(effectiveDiscount({ code: "X", discountAmount: 3 }, 8.7)).toBe(3);
+    expect(
+      effectiveDiscount(
+        { kind: "coupon", coupon: { code: "X", discountAmount: 3 } },
+        8.7,
+      ),
+    ).toBe(3);
     expect(effectiveDiscount(null, 8.7)).toBe(0);
     expect(totalDue(8.7, 1.5, 20)).toBe(0);
     expect(totalDue(8.7, 1.5, 0.3)).toBe(9.9);

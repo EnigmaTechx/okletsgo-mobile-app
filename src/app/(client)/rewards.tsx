@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { KmBankCard, WelcomeHeroCard } from "../../components/promo/PromoCards";
 import { AppText } from "../../components/ui/AppText";
 import { Screen } from "../../components/ui/Screen";
 import { useToast } from "../../components/ui/Toast";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePromotions } from "../../contexts/PromotionsContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import {
   discountLabel,
@@ -26,12 +29,15 @@ const validUntil = (c: Coupon): string | null => {
 };
 
 /**
- * Rewards tab. Today: the coupon codes a rider can use (the Ionic Coupons
- * page). The welcome gift and km rewards join it in phase 4.
+ * Rewards tab: the welcome gift while it is unused, the km bank, then the
+ * coupon codes a rider can type at checkout (the Ionic Coupons page).
  */
 export default function ClientRewards() {
+  const router = useRouter();
   const { colors } = useTheme();
   const { currentUser } = useAuth();
+  const { welcome, welcomeAvailable, welcomeBookedRideId, bank } =
+    usePromotions();
   const toast = useToast();
   const [coupons, setCoupons] = useState<Coupon[] | null>(null);
 
@@ -54,10 +60,31 @@ export default function ClientRewards() {
       <View style={styles.header}>
         <AppText variant="title">Rewards</AppText>
         <AppText variant="small" color="textMuted">
-          Your codes. Enter one at checkout to redeem it.
+          Gifts, km credits and codes for your rides.
         </AppText>
       </View>
 
+      {welcome && (welcomeAvailable || welcomeBookedRideId) ? (
+        <View style={styles.promo}>
+          <WelcomeHeroCard
+            item={welcome}
+            bookedRideId={welcomeBookedRideId}
+            onBook={() => router.push("/(ride)/book/locations")}
+            onOpenRide={(id) =>
+              router.push({ pathname: "/(ride)/live/[id]", params: { id } })
+            }
+          />
+        </View>
+      ) : null}
+      {bank ? (
+        <View style={styles.promo}>
+          <KmBankCard bank={bank} />
+        </View>
+      ) : null}
+
+      <AppText variant="eyebrow" color="textMuted" style={styles.sectionTitle}>
+        YOUR CODES
+      </AppText>
       {coupons === null ? (
         <ActivityIndicator color={colors.primary} style={styles.center} />
       ) : coupons.length === 0 ? (
@@ -170,6 +197,8 @@ export default function ClientRewards() {
 
 const styles = StyleSheet.create({
   header: { paddingVertical: spacing.lg, gap: 4 },
+  promo: { marginBottom: spacing.md },
+  sectionTitle: { marginTop: spacing.xs, marginBottom: spacing.sm },
   center: { marginTop: 48 },
   empty: {
     alignItems: "center",

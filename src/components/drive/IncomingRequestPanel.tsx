@@ -106,8 +106,8 @@ export function IncomingRequestPanel({
       </View>
       <AppText variant="small" color="textMuted">
         Payout is your {share}% share of the {cad(ride.estimatedPrice)} fare.
-        {ride.couponCode
-          ? " The rider is using a promo code; you are paid in full either way."
+        {ride.couponCode || (ride.discountAmount ?? 0) > 0
+          ? " The rider has a discount; you are paid in full either way."
           : ""}
       </AppText>
 

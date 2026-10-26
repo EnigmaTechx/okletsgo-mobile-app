@@ -23,6 +23,7 @@ import { driverPayout } from "../../../utils/fareCalculator";
 import { cad } from "../../../utils/money";
 import { formatDriverRating } from "../../../utils/rating";
 import { radius, spacing } from "../../../theme/tokens";
+import { discountLabel } from "../../../utils/promoLabels";
 
 const STAR_GOLD = "#F5B301";
 
@@ -232,7 +233,11 @@ export default function RideHistoryDetail() {
             <Row label="Service" value={cad(ride.platformFee)} />
             {ride.discountAmount ? (
               <Row
-                label={`Discount${ride.couponCode ? ` (${ride.couponCode})` : ""}`}
+                label={
+                  ride.promoId
+                    ? discountLabel(ride)
+                    : `Discount${ride.couponCode ? ` (${ride.couponCode})` : ""}`
+                }
                 value={`-${cad(ride.discountAmount)}`}
                 tint={colors.success}
               />

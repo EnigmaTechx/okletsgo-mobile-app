@@ -12,7 +12,8 @@ import { db, functions } from "./firebase";
 // Redemption + the authoritative discount happen server-side (Cloud Function).
 // Anything here is display / preview only.
 
-export type DiscountType = "percent" | "fixed";
+/** "distance": the first `kmCovered` km free, valued at the active pricing. */
+export type DiscountType = "percent" | "fixed" | "distance";
 export type CouponAudience = "all" | "targeted";
 
 export interface Coupon {
@@ -21,6 +22,8 @@ export interface Coupon {
   description?: string | null;
   discountType: DiscountType;
   discountValue: number;
+  /** For "distance" coupons: how many km are covered. */
+  kmCovered?: number | null;
   maxDiscount?: number | null;
   minFare?: number | null;
   validFrom?: Timestamp | null;
@@ -44,6 +47,8 @@ export interface Coupon {
 export function computeDiscount(c: Coupon, fare: number): number {
   if (!(fare > 0)) return 0;
   if (c.minFare && fare < c.minFare) return 0;
+  // Distance coupons need the trip and the pricing; the server values them.
+  if (c.discountType === "distance") return 0;
   let d =
     c.discountType === "percent"
       ? (c.discountValue / 100) * fare
@@ -55,6 +60,7 @@ export function computeDiscount(c: Coupon, fare: number): number {
 
 /** Short label, e.g. "50% OFF up to $10" or "$12 OFF". */
 export function discountLabel(c: Coupon): string {
+  if (c.discountType === "distance") return `First ${c.kmCovered ?? 0} km FREE`;
   if (c.discountType === "percent")
     return `${c.discountValue}% OFF${c.maxDiscount ? ` up to $${c.maxDiscount}` : ""}`;
   return `$${c.discountValue} OFF`;
@@ -157,12 +163,13 @@ export interface AppliedCoupon {
 export async function validateCouponRemote(
   code: string,
   fare: number,
+  distanceKm?: number,
 ): Promise<AppliedCoupon> {
   const fn = httpsCallable<
-    { code: string; fare: number },
+    { code: string; fare: number; distanceKm?: number },
     { code: string; discountAmount: number; description?: string | null }
   >(functions, "validateCoupon");
-  const res = await fn({ code: code.trim().toUpperCase(), fare });
+  const res = await fn({ code: code.trim().toUpperCase(), fare, distanceKm });
   const d = res.data;
   return {
     code: d.code,
@@ -179,11 +186,17 @@ export async function redeemCouponRemote(
   code: string,
   rideId: string,
   fare: number,
+  distanceKm?: number,
 ): Promise<number> {
   const fn = httpsCallable<
-    { code: string; rideId: string; fare: number },
+    { code: string; rideId: string; fare: number; distanceKm?: number },
     { discountAmount: number }
   >(functions, "redeemCoupon");
-  const res = await fn({ code: code.trim().toUpperCase(), rideId, fare });
+  const res = await fn({
+    code: code.trim().toUpperCase(),
+    rideId,
+    fare,
+    distanceKm,
+  });
   return res.data.discountAmount;
 }

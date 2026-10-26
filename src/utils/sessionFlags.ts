@@ -20,3 +20,5 @@ export const rideOutcomeShownKey = (rideId: string) =>
 /** The "You've arrived" screen for a ride has been shown this session. */
 export const tripCompleteShownKey = (rideId: string) =>
   `tripCompleteShown:${rideId}`;
+/** A promotion pop-up has been shown this launch (at most one per launch). */
+export const promoPopupShownKey = () => "promoPopupShown";

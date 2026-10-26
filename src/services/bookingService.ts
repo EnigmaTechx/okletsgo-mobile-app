@@ -2,6 +2,10 @@ import { doc, updateDoc } from "@react-native-firebase/firestore";
 import { db } from "./firebase";
 import { createRideRequest } from "./rideService";
 import { redeemCouponRemote, type AppliedCoupon } from "./couponService";
+import {
+  claimWelcomePromoRemote,
+  redeemKmRewardRemote,
+} from "./promotionsService";
 import { FEATURES } from "../config/features";
 import type { RideRequest } from "../interfaces/ride";
 import type { UserProfile } from "../interfaces/user";
@@ -9,7 +13,7 @@ import { round2 } from "../utils/money";
 
 /**
  * Booking a ride: the exact document the Ionic confirmation step writes,
- * then the server-side coupon lock. Kept out of the screen so the pure
+ * then the server-side discount lock. Kept out of the screen so the pure
  * parts can be tested and phase 5 (Stripe) can slot in before `createRide`.
  */
 
@@ -18,6 +22,22 @@ export interface PlaceInput {
   lat: number;
   lng: number;
 }
+
+/**
+ * The one discount a ride can carry. The app previews the amount; the
+ * server decides it (redeemCoupon, claimWelcomePromo, redeemKmReward) once
+ * the ride document exists.
+ */
+export type BookingPromo =
+  | { kind: "coupon"; coupon: AppliedCoupon }
+  | {
+      kind: "welcome";
+      promoId: string;
+      couponCode: string;
+      maxFreeKm: number | null;
+      discountAmount: number;
+    }
+  | { kind: "km_reward"; creditKm: number; discountAmount: number };
 
 export interface BookingInput {
   rider: UserProfile;
@@ -33,14 +53,17 @@ export interface BookingInput {
   autoForward: boolean;
   passengerName?: string;
   passengerPhone?: string;
-  coupon?: AppliedCoupon | null;
+  promo?: BookingPromo | null;
 }
+
+const promoAmount = (promo: BookingPromo): number =>
+  promo.kind === "coupon" ? promo.coupon.discountAmount : promo.discountAmount;
 
 /** Discount never exceeds the trip fare; total never goes below zero. */
 export const effectiveDiscount = (
-  coupon: AppliedCoupon | null | undefined,
+  promo: BookingPromo | null | undefined,
   fare: number,
-): number => (coupon ? Math.min(coupon.discountAmount, fare) : 0);
+): number => (promo ? Math.min(promoAmount(promo), fare) : 0);
 
 export const totalDue = (
   fare: number,
@@ -48,14 +71,32 @@ export const totalDue = (
   discount: number,
 ): number => round2(Math.max(0, fare + serviceFee - discount));
 
+/** What the rider sees the discount called: "WELCOME10 applied", etc. */
+export function promoName(promo: BookingPromo): string {
+  switch (promo.kind) {
+    case "coupon":
+      return promo.coupon.code;
+    case "welcome":
+      return "First ride free";
+    case "km_reward":
+      return `${promo.creditKm} km credit`;
+  }
+}
+
 /** Pure: the ride document for a booking. */
 export function buildRideRequest(
   input: BookingInput,
   nowIso: string,
 ): RideRequest {
-  const { rider, driver } = input;
-  const discount = effectiveDiscount(input.coupon, input.fare);
+  const { rider, driver, promo } = input;
+  const discount = effectiveDiscount(promo, input.fare);
   const vehicle = driver.vehicle;
+  const couponCode =
+    promo?.kind === "coupon"
+      ? promo.coupon.code
+      : promo?.kind === "welcome"
+        ? promo.couponCode
+        : null;
   return {
     clientId: rider.uid,
     clientFirstName: rider.firstName,
@@ -77,12 +118,13 @@ export function buildRideRequest(
     destination: { ...input.destination },
     distance: input.distanceKm,
     // estimatedPrice stays the FULL fare so the driver's payout (computed
-    // from it) is unaffected: the platform absorbs the coupon discount.
+    // from it) is unaffected: the platform absorbs the discount.
     estimatedPrice: input.fare,
     platformFee: input.serviceFee,
     totalClientCharge: totalDue(input.fare, input.serviceFee, discount),
-    ...(input.coupon
-      ? { couponCode: input.coupon.code, discountAmount: discount }
+    // promoId / kmRewardApplied are set by the functions, never here.
+    ...(promo
+      ? { ...(couponCode ? { couponCode } : {}), discountAmount: discount }
       : {}),
     paymentStatus: "paid_direct",
     autoForward: input.autoForward,
@@ -93,15 +135,36 @@ export function buildRideRequest(
 
 export interface BookingResult {
   rideId: string;
-  /** The coupon failed to lock in at booking; the ride went at full price. */
-  couponDropped: boolean;
+  /** The discount failed to lock in at booking; the ride went at full price. */
+  promoDropped: boolean;
+}
+
+/** The server's authoritative discount for the promo, or a throw. */
+async function lockPromo(
+  promo: BookingPromo,
+  rideId: string,
+  input: BookingInput,
+): Promise<number> {
+  switch (promo.kind) {
+    case "coupon":
+      return redeemCouponRemote(
+        promo.coupon.code,
+        rideId,
+        input.fare,
+        input.distanceKm,
+      );
+    case "welcome":
+      return (await claimWelcomePromoRemote(rideId, promo.promoId))
+        .discountAmount;
+    case "km_reward":
+      return (await redeemKmRewardRemote(rideId)).discountAmount;
+  }
 }
 
 /**
- * Create the ride, then lock the coupon in server-side (atomic usage limits,
- * authoritative discount). If the coupon stopped being valid between
- * preview and booking, the ride is kept at the regular price rather than
- * blocked.
+ * Create the ride, then lock the discount in server-side (atomic usage
+ * limits, authoritative amount). If it stopped being valid between preview
+ * and booking, the ride is kept at the regular price rather than blocked.
  */
 export async function bookRide(input: BookingInput): Promise<BookingResult> {
   if (FEATURES.STRIPE_PAYMENTS) {
@@ -112,15 +175,11 @@ export async function bookRide(input: BookingInput): Promise<BookingResult> {
   const ride = buildRideRequest(input, new Date().toISOString());
   const rideId = await createRideRequest(ride);
 
-  let couponDropped = false;
-  if (input.coupon) {
-    const previewDiscount = effectiveDiscount(input.coupon, input.fare);
+  let promoDropped = false;
+  if (input.promo) {
+    const previewDiscount = effectiveDiscount(input.promo, input.fare);
     try {
-      const authoritative = await redeemCouponRemote(
-        input.coupon.code,
-        rideId,
-        input.fare,
-      );
+      const authoritative = await lockPromo(input.promo, rideId, input);
       if (Math.abs(authoritative - previewDiscount) > 0.001) {
         await updateDoc(doc(db, "rides", rideId), {
           discountAmount: authoritative,
@@ -132,8 +191,8 @@ export async function bookRide(input: BookingInput): Promise<BookingResult> {
         });
       }
     } catch (err) {
-      console.warn("Coupon redemption failed at booking:", err);
-      couponDropped = true;
+      console.warn("Discount lock failed at booking:", err);
+      promoDropped = true;
       await updateDoc(doc(db, "rides", rideId), {
         couponCode: null,
         discountAmount: null,
@@ -141,5 +200,5 @@ export async function bookRide(input: BookingInput): Promise<BookingResult> {
       });
     }
   }
-  return { rideId, couponDropped };
+  return { rideId, promoDropped };
 }

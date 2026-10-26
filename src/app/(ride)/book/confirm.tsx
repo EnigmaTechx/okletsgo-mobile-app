@@ -19,27 +19,29 @@ import { TextField } from "../../../components/ui/TextField";
 import { useToast } from "../../../components/ui/Toast";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useFeatureFlags } from "../../../contexts/FeatureFlagsContext";
+import { usePromotions } from "../../../contexts/PromotionsContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useDrivingRoute } from "../../../hooks/useDrivingRoute";
+import { distanceDiscount } from "../../../config/promotions";
 import {
   bookRide,
   effectiveDiscount,
+  promoName,
   totalDue,
+  type BookingPromo,
 } from "../../../services/bookingService";
-import {
-  validateCouponRemote,
-  type AppliedCoupon,
-} from "../../../services/couponService";
+import { validateCouponRemote } from "../../../services/couponService";
 import { isDriverOnline } from "../../../services/rideService";
 import { formatDateTime } from "../../../utils/address";
-import { SERVICE_FEE } from "../../../utils/fareCalculator";
-import { cad } from "../../../utils/money";
+import { calculateFare, SERVICE_FEE } from "../../../utils/fareCalculator";
+import { cad, round2 } from "../../../utils/money";
 import { formatPhone } from "../../../utils/phone";
 import { fontFamily, radius, spacing } from "../../../theme/tokens";
 
 /**
- * Step 4 of 4: everything in one card, a promo code, the hand-off switch,
- * optional passenger details, a map preview, and Confirm.
+ * Step 4 of 4: everything in one card, the discount (the welcome gift
+ * applied by itself, a banked km credit, or a promo code), the hand-off
+ * switch, optional passenger details, a map preview, and Confirm.
  */
 export default function BookConfirm() {
   const router = useRouter();
@@ -56,6 +58,7 @@ export default function BookConfirm() {
   const { userProfile } = useAuth();
   const { isVisible } = useFeatureFlags();
   const { draft, reset } = useBooking();
+  const promotions = usePromotions();
 
   const [passengerName, setPassengerName] = useState(
     userProfile?.firstName ?? "",
@@ -70,7 +73,7 @@ export default function BookConfirm() {
   const [promoCode, setPromoCode] = useState("");
   const [promoBusy, setPromoBusy] = useState(false);
   const [promoError, setPromoError] = useState<string | null>(null);
-  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [promo, setPromo] = useState<BookingPromo | null>(null);
   const [booking, setBooking] = useState(false);
   const [booked, setBooked] = useState(false);
 
@@ -90,11 +93,52 @@ export default function BookConfirm() {
 
   const route = useDrivingRoute(pickup, destination);
 
+  // The welcome gift: previewed here exactly as the server will value it,
+  // applied by itself the first time this step knows the rider has it.
+  const welcome = promotions.welcomeAvailable ? promotions.welcome : null;
+  const welcomePromo = (): BookingPromo | null =>
+    welcome && fare !== null && distanceKm !== null
+      ? {
+          kind: "welcome",
+          promoId: welcome.id,
+          couponCode: welcome.couponCode as string,
+          maxFreeKm: welcome.maxFreeKm,
+          discountAmount: distanceDiscount(
+            fare,
+            distanceKm,
+            welcome.maxFreeKm ?? Number.POSITIVE_INFINITY,
+            calculateFare,
+          ),
+        }
+      : null;
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if (welcome && seededFor !== welcome.id) {
+    setSeededFor(welcome.id);
+    if (!promo) setPromo(welcomePromo());
+  }
+
   if (!complete || !userProfile) return null;
 
-  const discount = effectiveDiscount(coupon, fare);
+  const bank = promotions.bank;
+  const kmCreditPromo = (): BookingPromo | null =>
+    bank && bank.credits > 0
+      ? {
+          kind: "km_reward",
+          creditKm: bank.creditKm,
+          discountAmount: distanceDiscount(
+            fare,
+            distanceKm,
+            bank.creditKm,
+            calculateFare,
+          ),
+        }
+      : null;
+
+  const discount = effectiveDiscount(promo, fare);
   const total = totalDue(fare, SERVICE_FEE, discount);
   const { date, time } = formatDateTime(scheduledForIso);
+  // Gift and credit cover the trip fare itself: show it crossed out.
+  const coversTrip = !!promo && promo.kind !== "coupon";
 
   const applyPromo = async () => {
     const code = promoCode.trim().toUpperCase();
@@ -102,14 +146,20 @@ export default function BookConfirm() {
     setPromoBusy(true);
     setPromoError(null);
     try {
-      setCoupon(await validateCouponRemote(code, fare));
+      const coupon = await validateCouponRemote(code, fare, distanceKm);
+      setPromo({ kind: "coupon", coupon });
       setPromoCode(code);
     } catch (err) {
-      setCoupon(null);
       setPromoError((err as Error).message || "That coupon can't be applied.");
     } finally {
       setPromoBusy(false);
     }
+  };
+
+  const removePromo = () => {
+    setPromo(null);
+    setPromoCode("");
+    setPromoError(null);
   };
 
   const confirm = async () => {
@@ -135,11 +185,11 @@ export default function BookConfirm() {
           passengerPhone.replace(/\D/g, "").length === 10
             ? `+1${passengerPhone.replace(/\D/g, "")}`
             : undefined,
-        coupon,
+        promo,
       });
-      if (result.couponDropped) {
+      if (result.promoDropped && promo) {
         toast(
-          "Your coupon couldn't be applied, so the trip was booked at the regular price.",
+          `${promo.kind === "coupon" ? "Your coupon" : promo.kind === "welcome" ? "The welcome gift" : "Your km credit"} couldn't be applied, so the trip was booked at the regular price.`,
           { type: "error", durationMs: 4000 },
         );
       }
@@ -156,7 +206,7 @@ export default function BookConfirm() {
         pickupAddress: pickup.address,
         destinationAddress: destination.address,
         totalDue: String(
-          result.couponDropped ? totalDue(fare, SERVICE_FEE, 0) : total,
+          result.promoDropped ? totalDue(fare, SERVICE_FEE, 0) : total,
         ),
         dateStr: date,
         timeStr: time,
@@ -221,29 +271,32 @@ export default function BookConfirm() {
         </View>
 
         <View style={[styles.divided, divider, styles.costs]}>
-          <CostRow label="Trip" value={cad(fare)} />
+          <CostRow
+            label="Trip"
+            value={cad(fare)}
+            was={coversTrip ? cad(fare) : undefined}
+            now={coversTrip ? cad(round2(fare - discount)) : undefined}
+          />
           <CostRow label="Service" value={cad(SERVICE_FEE)} />
-          {coupon && discount > 0 ? (
+          {promo?.kind === "coupon" && discount > 0 ? (
             <CostRow
-              label={`Discount (${coupon.code})`}
+              label={`Discount (${promo.coupon.code})`}
               value={`-${cad(discount)}`}
               tint={colors.success}
             />
           ) : null}
 
-          {coupon ? (
+          {promo ? (
             <View style={styles.rowBetween}>
               <AppText variant="smallStrong" color="success">
-                ✓ {coupon.code} applied
+                ✓{" "}
+                {promo.kind === "coupon"
+                  ? `${promo.coupon.code} applied`
+                  : promo.kind === "welcome"
+                    ? `${promoName(promo)}${promo.maxFreeKm ? ` (up to ${promo.maxFreeKm} km)` : ""}`
+                    : `${promoName(promo)} applied`}
               </AppText>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  setCoupon(null);
-                  setPromoCode("");
-                  setPromoError(null);
-                }}
-              >
+              <Pressable accessibilityRole="button" onPress={removePromo}>
                 <AppText variant="smallStrong" color="textMuted">
                   Remove
                 </AppText>
@@ -251,6 +304,48 @@ export default function BookConfirm() {
             </View>
           ) : (
             <>
+              {welcome ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setPromo(welcomePromo())}
+                  style={styles.rowBetween}
+                >
+                  <View style={styles.inline}>
+                    <Ionicons
+                      name="gift-outline"
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <AppText variant="body" color="primary">
+                      Use your welcome gift
+                    </AppText>
+                  </View>
+                  <AppText variant="bodyStrong" color="primary">
+                    Apply
+                  </AppText>
+                </Pressable>
+              ) : null}
+              {bank && bank.credits > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setPromo(kmCreditPromo())}
+                  style={styles.rowBetween}
+                >
+                  <View style={styles.inline}>
+                    <Ionicons
+                      name="speedometer-outline"
+                      size={18}
+                      color={colors.primary}
+                    />
+                    <AppText variant="body" color="primary">
+                      Use a {bank.creditKm} km credit ({bank.credits} banked)
+                    </AppText>
+                  </View>
+                  <AppText variant="bodyStrong" color="primary">
+                    Apply
+                  </AppText>
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ expanded: promoOpen }}
@@ -389,10 +484,15 @@ function CostRow({
   label,
   value,
   tint,
+  was,
+  now,
 }: {
   label: string;
   value: string;
   tint?: string;
+  /** When a gift covers this line: the crossed-out amount and what is left. */
+  was?: string;
+  now?: string;
 }) {
   return (
     <View style={styles.rowBetween}>
@@ -403,9 +503,23 @@ function CostRow({
       >
         {label}
       </AppText>
-      <AppText variant="bodyStrong" style={tint ? { color: tint } : undefined}>
-        {value}
-      </AppText>
+      {was !== undefined && now !== undefined ? (
+        <View style={styles.inline}>
+          <AppText variant="small" color="textMuted" style={styles.strike}>
+            {was}
+          </AppText>
+          <AppText variant="bodyStrong" color="success">
+            {now}
+          </AppText>
+        </View>
+      ) : (
+        <AppText
+          variant="bodyStrong"
+          style={tint ? { color: tint } : undefined}
+        >
+          {value}
+        </AppText>
+      )}
     </View>
   );
 }
@@ -445,6 +559,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   flex: { flex: 1 },
+  strike: { textDecorationLine: "line-through" },
   passenger: { gap: spacing.lg },
   map: { height: 200, borderRadius: radius.lg, marginTop: spacing.md },
   cta: { marginTop: spacing.xl },
