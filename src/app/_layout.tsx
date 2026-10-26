@@ -17,6 +17,7 @@ import {
 } from "@expo-google-fonts/manrope";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { FeatureFlagsProvider } from "../contexts/FeatureFlagsContext";
+import { PromotionsProvider } from "../contexts/PromotionsContext";
 import { ThemeProvider, useTheme } from "../contexts/ThemeContext";
 import { initPricingConfig } from "../services/pricingService";
 import { useUpdateGate } from "../services/appUpdateService";
@@ -48,7 +49,9 @@ export default function RootLayout() {
         <ToastProvider>
           <AuthProvider>
             <FeatureFlagsProvider>
-              <RootNavigator fontsLoaded={fontsLoaded} />
+              <PromotionsProvider>
+                <RootNavigator fontsLoaded={fontsLoaded} />
+              </PromotionsProvider>
             </FeatureFlagsProvider>
           </AuthProvider>
         </ToastProvider>

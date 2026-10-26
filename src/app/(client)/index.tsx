@@ -7,6 +7,8 @@ import {
   ClientNextStrip,
   ClientTripGroups,
 } from "../../components/rides/ClientTripCards";
+import { PromoPopup } from "../../components/promo/PromoPopup";
+import { WelcomeStrip } from "../../components/promo/PromoCards";
 import { RatingDialog } from "../../components/rides/RatingDialog";
 import {
   RideOutcomeDialog,
@@ -17,6 +19,7 @@ import { LoadingScreen } from "../../components/ui/LoadingScreen";
 import { Logo } from "../../components/ui/Logo";
 import { Screen } from "../../components/ui/Screen";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePromotions } from "../../contexts/PromotionsContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import type { RideRequest } from "../../interfaces/ride";
 import {
@@ -47,6 +50,7 @@ export default function ClientHome() {
   const router = useRouter();
   const { colors } = useTheme();
   const { userProfile, currentUser } = useAuth();
+  const { welcome, welcomeAvailable } = usePromotions();
   const uid = currentUser?.uid;
 
   const [rides, setRides] = useState<RideRequest[] | null>(null);
@@ -187,6 +191,13 @@ export default function ClientHome() {
           <Logo width={100} />
         </View>
 
+        {/* The welcome gift, until it is used or expires. */}
+        {welcome && welcomeAvailable ? (
+          <View style={styles.strip}>
+            <WelcomeStrip item={welcome} onPress={startBooking} />
+          </View>
+        ) : null}
+
         {rides.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="car-outline" size={44} color={colors.textMuted} />
@@ -305,6 +316,7 @@ export default function ClientHome() {
         }}
         onDismiss={() => setOutcome(null)}
       />
+      <PromoPopup blocked={rides.length > 0} />
     </Screen>
   );
 }
@@ -347,4 +359,5 @@ const styles = StyleSheet.create({
   },
   empty: { alignItems: "center", gap: spacing.sm, paddingVertical: 48 },
   block: { marginTop: spacing.lg },
+  strip: { marginBottom: spacing.sm },
 });

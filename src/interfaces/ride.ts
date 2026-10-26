@@ -96,9 +96,15 @@ export interface RideRequest {
   paymentIntentId?: string;
   setupIntentId?: string;
 
-  // Coupons (scaffold — not yet active)
-  couponCode?: string;
-  discountAmount?: number;
+  // Coupons and promotions. The platform absorbs the discount: estimatedPrice
+  // stays the full fare, totalClientCharge is what the rider pays.
+  couponCode?: string | null;
+  discountAmount?: number | null;
+  /** Promotion behind the discount: a welcome item id, or "km-reward".
+   *  Set by the claimWelcomePromo / redeemKmReward functions, never the app. */
+  promoId?: string | null;
+  /** A banked km credit was spent on this ride. */
+  kmRewardApplied?: boolean;
 
   // Cancellations & Declines
   declinedBy?: DeclineRecord[];

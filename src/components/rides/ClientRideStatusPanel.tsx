@@ -24,6 +24,7 @@ import { Sheet } from "../ui/Sheet";
 import { CancelRideSheet } from "./CancelRideSheet";
 import { EditRideTimeSheet } from "./EditRideTimeSheet";
 import { RouteTimeline } from "./RouteTimeline";
+import { discountLabel } from "../../utils/promoLabels";
 
 // SAFETY: mirrors the driver-side gate on the client's photo. The driver's
 // photo is only revealed once they have accepted and started heading to
@@ -279,9 +280,9 @@ export function ClientRideStatusPanel({
           <AppText variant="heading" color="success">
             {cad(total)}
           </AppText>
-          {ride.couponCode ? (
+          {ride.couponCode || (ride.discountAmount ?? 0) > 0 ? (
             <AppText variant="small" color="accent">
-              {ride.couponCode} applied
+              {discountLabel(ride)}
             </AppText>
           ) : null}
         </View>

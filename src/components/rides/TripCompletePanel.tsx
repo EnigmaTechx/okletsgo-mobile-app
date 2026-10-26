@@ -11,6 +11,7 @@ import { AppText } from "../ui/AppText";
 import { Button } from "../ui/Button";
 import { useToast } from "../ui/Toast";
 import { RouteTimeline } from "./RouteTimeline";
+import { discountLabel } from "../../utils/promoLabels";
 
 const STAR_LABELS = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
 
@@ -80,7 +81,7 @@ export function TripCompletePanel({ ride, riderFirstName, onDone }: Props) {
             </AppText>
             {discount > 0 ? (
               <AppText variant="smallStrong" color="accent">
-                {ride.couponCode || "Discount"} applied
+                {discountLabel(ride)}
               </AppText>
             ) : null}
           </View>

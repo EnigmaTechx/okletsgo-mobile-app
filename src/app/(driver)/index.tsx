@@ -7,6 +7,7 @@ import {
   DriverTripGroups,
   NextPickupStrip,
 } from "../../components/drive/DriverTripCards";
+import { PromoPopup } from "../../components/promo/PromoPopup";
 import { AppText } from "../../components/ui/AppText";
 import { LoadingScreen } from "../../components/ui/LoadingScreen";
 import { Logo } from "../../components/ui/Logo";
@@ -229,6 +230,7 @@ export default function DriverHome() {
           </>
         )}
       </ScrollView>
+      <PromoPopup blocked={rides.length > 0} />
     </Screen>
   );
 }
