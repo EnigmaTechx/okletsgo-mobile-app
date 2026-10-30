@@ -33,6 +33,7 @@ import {
 import { validateCouponRemote } from "../../../services/couponService";
 import { isDriverOnline } from "../../../services/rideService";
 import { formatDateTime } from "../../../utils/address";
+import { formatKm } from "../../../utils/geo";
 import { calculateFare, SERVICE_FEE } from "../../../utils/fareCalculator";
 import { cad, round2 } from "../../../utils/money";
 import { formatPhone } from "../../../utils/phone";
@@ -272,7 +273,7 @@ export default function BookConfirm() {
 
         <View style={[styles.divided, divider, styles.costs]}>
           <CostRow
-            label="Trip"
+            label={`Trip · ${formatKm(distanceKm)}`}
             value={cad(fare)}
             was={coversTrip ? cad(fare) : undefined}
             now={coversTrip ? cad(round2(fare - discount)) : undefined}
