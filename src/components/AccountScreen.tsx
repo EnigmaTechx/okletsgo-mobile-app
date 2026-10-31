@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Screen } from "./ui/Screen";
 import { AppText } from "./ui/AppText";
 import { Avatar } from "./ui/Avatar";
+import { ConfirmSheet } from "./ui/ConfirmSheet";
 import { MenuRow } from "./ui/MenuRow";
 import { showAlert } from "./ui/alerts";
 import { StatsStrip } from "./StatsStrip";
@@ -36,6 +37,10 @@ export function AccountScreen() {
   const { isVisible } = useFeatureFlags();
   const bgLocation = useBgLocationConsent();
   const [rideCount, setRideCount] = useState<number | null>(null);
+  const [confirming, setConfirming] = useState<"logout" | "delete" | null>(
+    null,
+  );
+  const [deleting, setDeleting] = useState(false);
 
   const isDriver = userProfile?.role === "driver";
   const roleTint = isDriver ? colors.primary : colors.secondary;
@@ -52,41 +57,28 @@ export function AccountScreen() {
     };
   }, [uid, isDriver]);
 
-  const confirmLogout = () =>
-    showAlert("Sign out?", "You will need a new text code to sign back in.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign out", style: "destructive", onPress: () => void logout() },
-    ]);
+  const confirmLogout = () => setConfirming("logout");
+  const confirmDelete = () => setConfirming("delete");
 
-  const confirmDelete = () =>
-    showAlert(
-      "Delete account?",
-      "Your account will be deactivated immediately and permanently deleted in 30 days. You will lose access to all ride history and earnings.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            if (!uid) return;
-            try {
-              await scheduleAccountDeletion(uid);
-              showAlert(
-                "Account deactivated",
-                "Your account is scheduled for permanent deletion in 30 days. Sign in again before then to restore it.",
-                [{ text: "OK", onPress: () => void logout() }],
-              );
-            } catch (err) {
-              console.error("Error scheduling deletion:", err);
-              showAlert(
-                "Could not deactivate",
-                "Please try again or contact support.",
-              );
-            }
-          },
-        },
-      ],
-    );
+  const deleteAccount = async () => {
+    if (!uid) return;
+    setDeleting(true);
+    try {
+      await scheduleAccountDeletion(uid);
+      setConfirming(null);
+      showAlert(
+        "Account deactivated",
+        "Your account is scheduled for permanent deletion in 30 days. Sign in again before then to restore it.",
+        [{ text: "OK", onPress: () => void logout() }],
+      );
+    } catch (err) {
+      console.error("Error scheduling deletion:", err);
+      setConfirming(null);
+      showAlert("Could not deactivate", "Please try again or contact support.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const openPrivacyPolicy = () =>
     Linking.openURL(PRIVACY_POLICY_URL).catch(() => undefined);
@@ -360,6 +352,34 @@ export function AccountScreen() {
           danger
         />
       </View>
+
+      <ConfirmSheet
+        visible={confirming === "logout"}
+        tone="danger"
+        icon="log-out-outline"
+        title="Sign out"
+        message="You will need a new text code to sign back in."
+        cancelText="Cancel"
+        onCancel={() => setConfirming(null)}
+        confirmText="Sign out"
+        confirmColor="primary"
+        onConfirm={() => {
+          setConfirming(null);
+          void logout();
+        }}
+      />
+      <ConfirmSheet
+        visible={confirming === "delete"}
+        tone="danger"
+        icon="warning-outline"
+        title="Delete Account?"
+        message="Your account will be deactivated immediately and permanently deleted in 30 days. You will lose access to all ride history and earnings."
+        cancelText="Cancel"
+        onCancel={() => setConfirming(null)}
+        confirmText="Delete"
+        confirmLoading={deleting}
+        onConfirm={() => void deleteAccount()}
+      />
     </Screen>
   );
 }

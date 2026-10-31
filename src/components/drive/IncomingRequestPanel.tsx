@@ -2,16 +2,22 @@ import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
 import type { RideRequest } from "../../interfaces/ride";
-import { formatDayAndTime } from "../../utils/address";
-import { driverPayout, getActivePricing } from "../../utils/fareCalculator";
+import { formatTime } from "../../utils/address";
+import { driverPayout } from "../../utils/fareCalculator";
 import { formatKm, kmFromDriver, type LatLng } from "../../utils/geo";
-import { cad } from "../../utils/money";
-import { radius, spacing } from "../../theme/tokens";
+import { spacing } from "../../theme/tokens";
 import { AppText } from "../ui/AppText";
 import { Avatar } from "../ui/Avatar";
-import { Button } from "../ui/Button";
-import { ReasonSheet } from "../ui/ReasonSheet";
+import { ConfirmSheet } from "../ui/ConfirmSheet";
 import { RouteTimeline } from "../rides/RouteTimeline";
+import {
+  PersonRow,
+  PriceCluster,
+  SheetButton,
+  SheetCard,
+  SheetHead,
+  Strong,
+} from "../rides/SheetParts";
 import { riderName } from "./DriverTripCards";
 
 const DECLINE_REASONS = [
@@ -23,21 +29,29 @@ const DECLINE_REASONS = [
 
 interface Props {
   ride: RideRequest;
-  /** Where the driver is now, for "x km away". */
+  /** Where the driver is now, for "x km to pickup". */
   driverLocation: LatLng | null;
   locating: boolean;
   accepting: boolean;
   onAccept: () => void;
   onDecline: (reason: string) => void;
+  /** Height of the header block, for the collapsed sheet. */
+  onHeaderLayout?: (height: number) => void;
 }
 
-/** Header height for the collapsed sheet: title + rider row. */
-export const REQUEST_PANEL_HEADER = 150;
+/** "Oct 30" for the subline. */
+const shortDate = (iso?: string): string => {
+  const d = new Date(iso ?? "");
+  return Number.isNaN(d.getTime())
+    ? "ASAP"
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
 
 /**
- * A new request, laid out like the approved mockup: who, from where (and
- * how far away), to where, when, the trip length and the driver's payout,
- * then Accept or Decline with a reason.
+ * A new request, laid out like the Ionic IncomingRequestCard: the "New
+ * request" pill with the pickup date, time and distance under it, the
+ * rider and the payout, the route with "· x km to pickup" and "· y km trip"
+ * beside the addresses, then Accept Ride and Decline.
  */
 export function IncomingRequestPanel({
   ride,
@@ -46,95 +60,113 @@ export function IncomingRequestPanel({
   accepting,
   onAccept,
   onDecline,
+  onHeaderLayout,
 }: Props) {
   const { colors } = useTheme();
   const [declineOpen, setDeclineOpen] = useState(false);
+  const [reason, setReason] = useState(DECLINE_REASONS[0]);
   const away = kmFromDriver(driverLocation, ride.pickup);
+  const awayText =
+    away !== null
+      ? `${formatKm(away)} to pickup`
+      : locating
+        ? "··· to pickup"
+        : null;
   const payout = driverPayout(ride.estimatedPrice || 0);
-  const share = getActivePricing().driverSharePercent;
   const tripKm = Number(ride.actualDistanceKm ?? ride.distance);
+  const when = ride.scheduledTime || ride.createdAt;
+  const forwardsOnDecline = ride.autoForward !== false;
+  const name = riderName(ride);
 
   return (
     <View style={styles.root}>
-      <AppText variant="eyebrow" color="accent">
-        NEW RIDE REQUEST
-      </AppText>
-      <View style={styles.riderRow}>
-        <Avatar
-          firstName={ride.clientFirstName}
-          lastName={ride.clientLastName}
-          size={52}
-          tint={colors.secondary}
-        />
-        <View style={styles.flex}>
-          <AppText variant="title">{riderName(ride)} wants a ride</AppText>
-          <AppText variant="small" color="textMuted">
-            {away !== null
-              ? `${formatKm(away)} from you`
-              : locating
-                ? "Locating you…"
-                : "Distance unavailable"}
-          </AppText>
-        </View>
-      </View>
+      <SheetHead
+        tone="gold"
+        pill="New request"
+        onLayout={onHeaderLayout}
+        subline={
+          <>
+            {shortDate(when)}
+            {" · "}
+            <Strong>{formatTime(when)}</Strong>
+            {awayText ? ` · ${awayText}` : ""}
+          </>
+        }
+      />
 
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <RouteTimeline
-          pickup={ride.pickup.address}
-          dropoff={ride.destination.address}
-          compact
-        />
-      </View>
-
-      <View style={styles.facts}>
-        <Fact
-          label="PICKUP"
-          value={
-            formatDayAndTime(ride.scheduledTime || ride.createdAt) || "ASAP"
+      <View style={styles.body}>
+        {/* No photo before the driver accepts (safety gate): initials only. */}
+        <PersonRow
+          avatar={
+            <Avatar
+              firstName={ride.clientFirstName}
+              lastName={ride.clientLastName}
+              size={52}
+              tint={colors.secondary}
+            />
+          }
+          name={name}
+          sub="Rider"
+          right={
+            <PriceCluster amount={`$${payout.toFixed(2)}`} label="Est. Earn" />
           }
         />
-        <Fact
-          label="TRIP"
-          value={Number.isFinite(tripKm) && tripKm > 0 ? formatKm(tripKm) : "—"}
-        />
-        <Fact label="YOUR PAYOUT" value={cad(payout)} tint={colors.success} />
-      </View>
-      <AppText variant="small" color="textMuted">
-        Payout is your {share}% share of the {cad(ride.estimatedPrice)} fare.
-        {ride.couponCode || (ride.discountAmount ?? 0) > 0
-          ? " The rider has a discount; you are paid in full either way."
-          : ""}
-      </AppText>
 
-      <View style={styles.actions}>
-        <Button
-          title="Accept ride"
-          variant="success"
+        <SheetCard>
+          <RouteTimeline
+            size="lg"
+            pickup={ride.pickup.address}
+            dropoff={ride.destination.address}
+            pickupSuffix={awayText}
+            dropoffSuffix={
+              Number.isFinite(tripKm) && tripKm > 0
+                ? `${formatKm(tripKm)} trip`
+                : null
+            }
+          />
+        </SheetCard>
+
+        {forwardsOnDecline ? (
+          <AppText variant="smallStrong" color="textSecondary" align="center">
+            If you decline, the request is offered to the next available driver.
+          </AppText>
+        ) : null}
+      </View>
+
+      <View style={[styles.foot, { borderTopColor: colors.border }]}>
+        <SheetButton
+          title="Accept Ride"
+          icon="checkmark-circle"
+          kind="success"
+          size="lg"
           onPress={onAccept}
           loading={accepting}
         />
-        <Button
-          title="Decline · give a reason"
-          variant="secondary"
-          onPress={() => setDeclineOpen(true)}
+        <SheetButton
+          title="Decline"
+          icon="close-circle"
+          kind="outline"
+          onPress={() => {
+            setReason(DECLINE_REASONS[0]);
+            setDeclineOpen(true);
+          }}
           disabled={accepting}
         />
       </View>
 
-      <ReasonSheet
+      <ConfirmSheet
         visible={declineOpen}
-        title="Decline ride"
-        message="Please select a reason. The rider will be told."
-        reasons={DECLINE_REASONS}
-        cancelLabel="Go back"
-        confirmLabel="Decline ride"
+        tone="danger"
+        icon="close-circle-outline"
+        title="Decline Ride"
+        message="Please select a reason. The client will be notified."
+        options={DECLINE_REASONS}
+        selected={reason}
+        onSelect={setReason}
+        cancelText="Go Back"
         onCancel={() => setDeclineOpen(false)}
-        onConfirm={(reason) => {
+        confirmText="Decline Ride"
+        onConfirm={() => {
           setDeclineOpen(false);
           onDecline(reason);
         }}
@@ -143,54 +175,12 @@ export function IncomingRequestPanel({
   );
 }
 
-function Fact({
-  label,
-  value,
-  tint,
-}: {
-  label: string;
-  value: string;
-  tint?: string;
-}) {
-  const { colors } = useTheme();
-  return (
-    <View
-      style={[
-        styles.fact,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
-      <AppText variant="eyebrow" color="textMuted">
-        {label}
-      </AppText>
-      <AppText
-        variant="bodyStrong"
-        numberOfLines={1}
-        style={tint ? { color: tint } : undefined}
-      >
-        {value}
-      </AppText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { gap: spacing.md },
-  riderRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  flex: { flex: 1, gap: 2 },
-  card: {
-    padding: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
+  body: { gap: spacing.md },
+  foot: {
+    gap: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  facts: { flexDirection: "row", gap: spacing.sm },
-  fact: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    gap: 2,
-  },
-  actions: { gap: spacing.sm, marginTop: spacing.sm },
 });

@@ -2,14 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  ActiveRidePanel,
-  ACTIVE_PANEL_HEADER,
-} from "../../../components/drive/ActiveRidePanel";
-import {
-  IncomingRequestPanel,
-  REQUEST_PANEL_HEADER,
-} from "../../../components/drive/IncomingRequestPanel";
+import { ActiveRidePanel } from "../../../components/drive/ActiveRidePanel";
+import { IncomingRequestPanel } from "../../../components/drive/IncomingRequestPanel";
 import {
   RideMap,
   type RideMapHandle,
@@ -17,6 +11,7 @@ import {
 } from "../../../components/map/RideMap";
 import { AppText } from "../../../components/ui/AppText";
 import { Button } from "../../../components/ui/Button";
+import { ConfirmSheet } from "../../../components/ui/ConfirmSheet";
 import { DraggablePanel } from "../../../components/ui/DraggablePanel";
 import { IconButton } from "../../../components/ui/IconButton";
 import { LoadingScreen } from "../../../components/ui/LoadingScreen";
@@ -73,6 +68,9 @@ export default function DriverRide() {
   const [disclosureDismissed, setDisclosureDismissed] = useState(false);
   const [stableMe, setStableMe] = useState<LatLng | null>(null);
   const [openedAt] = useState(() => Date.now());
+  // Measured from the sheet header (pill + subline), so the collapsed panel
+  // shows exactly that and nothing half-cut beneath it.
+  const [headerHeight, setHeaderHeight] = useState(64);
   const lastWrite = useRef<{ point: LatLng; at: number } | null>(null);
 
   const tracking = !!ride && LIVE_STATUSES.includes(ride.status);
@@ -126,25 +124,10 @@ export default function DriverRide() {
   }, [tracking, ride?.id, me]);
 
   // Prominent disclosure BEFORE the OS background-permission prompt (Google
-  // Play policy), then the background task for the rest of the trip.
+  // Play policy), as a ConfirmSheet like the Ionic app; then the background
+  // task for the rest of the trip.
   const needsDisclosure =
     tracking && bgConsent.granted === false && !disclosureDismissed;
-  useEffect(() => {
-    if (!needsDisclosure) return;
-    showAlert(
-      "Share your live location",
-      "During a trip, OK Let's Go collects your location in the background, even when the app is closed or not in use, so your rider can follow you to pickup and drop-off. Tracking stops when the trip ends.",
-      [
-        {
-          text: "Not now",
-          style: "cancel",
-          onPress: () => setDisclosureDismissed(true),
-        },
-        { text: "Allow", onPress: () => bgConsent.setGranted(true) },
-      ],
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsDisclosure]);
 
   useEffect(() => {
     if (!tracking || !ride?.id || !bgConsent.granted) {
@@ -243,8 +226,6 @@ export default function DriverRide() {
   const expiredRequest =
     ride.status === "pending" &&
     new Date(ride.scheduledTime).getTime() < openedAt - 30 * 60 * 1000;
-  const headerHeight =
-    ride.status === "pending" ? REQUEST_PANEL_HEADER : ACTIVE_PANEL_HEADER;
   const collapsedHeight =
     PANEL_CHROME_HEIGHT + headerHeight + insets.bottom + spacing.xs;
 
@@ -313,6 +294,7 @@ export default function DriverRide() {
               accepting={accepting}
               onAccept={() => void accept()}
               onDecline={(r) => void decline(r)}
+              onHeaderLayout={setHeaderHeight}
             />
           )
         ) : (
@@ -325,11 +307,25 @@ export default function DriverRide() {
             onStartTrip={() => startTrip(ride.id as string)}
             onComplete={complete}
             onCancelled={goHome}
+            onHeaderLayout={setHeaderHeight}
           />
         )}
       </DraggablePanel>
 
       <ProcessingOverlay visible={!!busy} message={busy ?? ""} />
+
+      <ConfirmSheet
+        visible={needsDisclosure}
+        tone="primary"
+        icon="location-outline"
+        title="Share your live location"
+        message="During a trip, OK Let's Go collects your location in the background, even when the app is closed or not in use, so your rider can follow you to pickup and drop-off. Tracking stops when the trip ends."
+        cancelText="Not now"
+        onCancel={() => setDisclosureDismissed(true)}
+        confirmText="Allow"
+        onConfirm={() => bgConsent.setGranted(true)}
+        dismissible={false}
+      />
     </View>
   );
 }
