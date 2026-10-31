@@ -179,6 +179,47 @@ export const fetchRecentRides = async (
   };
 };
 
+// ─── Open rides (today + upcoming) ──────────────────────────────────────────
+
+const LIVE_STATUSES_QUERY = ["heading_to_pickup", "arrived", "in_progress"];
+
+/**
+ * Every ride with a pickup from the start of today onward (any status), plus
+ * any ride under way right now whatever day it was booked for. Sandbox rides
+ * removed, soonest pickup first. The All rides page buckets these into
+ * Today / Upcoming (utils/adminRideBuckets).
+ */
+export const fetchOpenRides = async (
+  now = new Date(),
+): Promise<RideRequest[]> => {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const rides = collection(db, "rides");
+  const [testIds, fromTodaySnap, liveSnap] = await Promise.all([
+    fetchTestAccountIds(),
+    getDocs(
+      query(
+        rides,
+        where("scheduledTime", ">=", start.toISOString()),
+        orderBy("scheduledTime", "asc"),
+      ),
+    ),
+    getDocs(query(rides, where("status", "in", LIVE_STATUSES_QUERY))),
+  ]);
+  const seen = new Set<string>();
+  const out: RideRequest[] = [];
+  for (const r of [...withIds(fromTodaySnap.docs), ...withIds(liveSnap.docs)]) {
+    if (!r.id || seen.has(r.id) || isSandboxRide(r, testIds)) continue;
+    seen.add(r.id);
+    out.push(r);
+  }
+  return out.sort(
+    (a, b) =>
+      new Date(a.scheduledTime || a.createdAt || "").getTime() -
+      new Date(b.scheduledTime || b.createdAt || "").getTime(),
+  );
+};
+
 // ─── Rides summary ──────────────────────────────────────────────────────────
 
 export type SummaryPeriod = "week" | "month" | "all";
@@ -432,7 +473,18 @@ export interface AdminClientDetail {
   completedRides: number;
   /** Most recent completed rides, newest first (up to 5). */
   recent: RideRequest[];
+  /** Rides still open for the rider: requested, accepted or under way.
+   *  Sandbox excluded, unsorted. */
+  openRides: RideRequest[];
 }
+
+const CLIENT_OPEN_STATUSES = [
+  "pending",
+  "accepted",
+  "heading_to_pickup",
+  "arrived",
+  "in_progress",
+];
 
 /** One client with their ride count and most recent completed rides.
  *  Resolves to null when the user doesn't exist (deleted account). */
@@ -445,16 +497,25 @@ export const fetchClientDetail = async (
     where("status", "==", "completed"),
   ];
 
-  const [testIds, userSnap, countSnap, recentSnap] = await Promise.all([
-    fetchTestAccountIds(),
-    getDoc(doc(db, "users", uid)),
-    getCountFromServer(query(rides, ...completedFor)),
-    // Served by the existing (clientId, status, createdAt desc) index. A few
-    // extra so a ride with a test driver can be dropped and still leave 5.
-    getDocs(
-      query(rides, ...completedFor, orderBy("createdAt", "desc"), limit(8)),
-    ),
-  ]);
+  const [testIds, userSnap, countSnap, recentSnap, openSnap] =
+    await Promise.all([
+      fetchTestAccountIds(),
+      getDoc(doc(db, "users", uid)),
+      getCountFromServer(query(rides, ...completedFor)),
+      // Served by the existing (clientId, status, createdAt desc) index. A few
+      // extra so a ride with a test driver can be dropped and still leave 5.
+      getDocs(
+        query(rides, ...completedFor, orderBy("createdAt", "desc"), limit(8)),
+      ),
+      // Equality filters only: no composite index needed.
+      getDocs(
+        query(
+          rides,
+          where("clientId", "==", uid),
+          where("status", "in", CLIENT_OPEN_STATUSES),
+        ),
+      ),
+    ]);
 
   if (!userSnap.exists()) return null;
 
@@ -464,6 +525,7 @@ export const fetchClientDetail = async (
     recent: withIds(recentSnap.docs)
       .filter((r) => !isSandboxRide(r, testIds))
       .slice(0, 5),
+    openRides: withIds(openSnap.docs).filter((r) => !isSandboxRide(r, testIds)),
   };
 };
 
@@ -499,22 +561,34 @@ export interface AdminDriverDetail {
    *  newest first — the same set the driver's own Earnings page uses, so the
    *  two views can never disagree. */
   rides: RideRequest[];
+  /** Rides still open for the driver: requested, accepted or under way.
+   *  Sandbox excluded, unsorted. */
+  openRides: RideRequest[];
 }
 
 /** One driver with their full ride set. Null when the account is gone. */
 export const fetchDriverDetail = async (
   uid: string,
 ): Promise<AdminDriverDetail | null> => {
-  const [testIds, userSnap, ridesSnap] = await Promise.all([
+  const rides = collection(db, "rides");
+  const [testIds, userSnap, ridesSnap, openSnap] = await Promise.all([
     fetchTestAccountIds(),
     getDoc(doc(db, "users", uid)),
     // Served by the existing (driverId, status, createdAt) index.
     getDocs(
       query(
-        collection(db, "rides"),
+        rides,
         where("driverId", "==", uid),
         where("status", "in", ["completed", "cancelled"]),
         orderBy("createdAt", "desc"),
+      ),
+    ),
+    // Equality filters only: no composite index needed.
+    getDocs(
+      query(
+        rides,
+        where("driverId", "==", uid),
+        where("status", "in", CLIENT_OPEN_STATUSES),
       ),
     ),
   ]);
@@ -524,5 +598,6 @@ export const fetchDriverDetail = async (
   return {
     profile: toProfile(userSnap.id, userSnap.data()),
     rides: withIds(ridesSnap.docs).filter((r) => !isSandboxRide(r, testIds)),
+    openRides: withIds(openSnap.docs).filter((r) => !isSandboxRide(r, testIds)),
   };
 };

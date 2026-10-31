@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AppText } from "../../components/ui/AppText";
@@ -9,6 +9,8 @@ import { TextField } from "../../components/ui/TextField";
 import { useToast } from "../../components/ui/Toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { usePhotoPicker } from "../../hooks/usePhotoPicker";
+import { uploadVehiclePhotoFile } from "../../services/storageService";
 import type { VehicleInfo } from "../../interfaces/user";
 import {
   submitVehicleChangeRequest,
@@ -21,7 +23,8 @@ import { radius, spacing } from "../../theme/tokens";
 /**
  * The driver's vehicle. Edits never write the profile directly: they go to
  * vehicleChangeRequests for admin approval, and the current details stay
- * active until then. Photos arrive with the shared photo work in phase 5.
+ * active until then. A new photo is uploaded straight away (upload only)
+ * and travels with the request, as in the Ionic app.
  */
 export default function DriverVehicle() {
   const router = useRouter();
@@ -39,11 +42,29 @@ export default function DriverVehicle() {
     VehicleChangeRequest | null | undefined
   >(undefined);
   const [saving, setSaving] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState(current?.photoUrl ?? "");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoPicker = usePhotoPicker({ size: 1000, square: false });
 
   useEffect(() => {
     if (!uid) return;
     return subscribePendingVehicleRequest(uid, setPending);
   }, [uid]);
+
+  const changePhoto = async () => {
+    if (!uid || uploadingPhoto || photoPicker.busy) return;
+    const picked = await photoPicker.pick("Vehicle photo");
+    if (!picked) return;
+    setUploadingPhoto(true);
+    try {
+      setPhotoUrl(await uploadVehiclePhotoFile(uid, picked.uri));
+    } catch (err) {
+      console.error("Vehicle photo upload failed:", err);
+      toast("Couldn't upload the photo. Please try again.", { type: "error" });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const proposed: VehicleInfo = {
     make: titleCase(make),
@@ -51,9 +72,10 @@ export default function DriverVehicle() {
     color: titleCase(color),
     plateNumber: formatPlate(plate),
     licenseNumber: current?.licenseNumber ?? "",
-    photoUrl: current?.photoUrl ?? "",
+    photoUrl: photoUrl || (current?.photoUrl ?? ""),
   };
   const changed =
+    proposed.photoUrl !== (current?.photoUrl ?? "") ||
     proposed.make !== (current?.make ?? "") ||
     proposed.model !== (current?.model ?? "") ||
     proposed.color !== (current?.color ?? "") ||
@@ -117,6 +139,36 @@ export default function DriverVehicle() {
             </AppText>
           </View>
         ) : null}
+        <View style={styles.photoRow}>
+          {photoUrl ? (
+            <Image source={{ uri: photoUrl }} style={styles.photo} />
+          ) : (
+            <View
+              style={[
+                styles.photo,
+                styles.photoEmpty,
+                { backgroundColor: colors.surfaceRaised },
+              ]}
+            >
+              <Ionicons name="car-sport" size={30} color={colors.textMuted} />
+            </View>
+          )}
+          <View style={styles.flex}>
+            <AppText variant="bodyStrong">Vehicle photo</AppText>
+            <AppText variant="small" color="textMuted">
+              Riders see it on the confirmation step.
+            </AppText>
+            <Button
+              title={photoUrl ? "Change photo" : "Add photo"}
+              variant="secondary"
+              block={false}
+              onPress={() => void changePhoto()}
+              loading={uploadingPhoto || photoPicker.busy}
+              disabled={locked || saving}
+              style={styles.photoBtn}
+            />
+          </View>
+        </View>
         <TextField
           label="Make"
           value={make}
@@ -178,5 +230,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   flex: { flex: 1 },
+  photoRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  photo: { width: 88, height: 66, borderRadius: radius.md },
+  photoEmpty: { alignItems: "center", justifyContent: "center" },
+  photoBtn: { marginTop: spacing.sm, alignSelf: "flex-start" },
   cta: { marginTop: spacing.xxl },
 });

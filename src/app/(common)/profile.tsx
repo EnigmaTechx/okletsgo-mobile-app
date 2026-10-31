@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { Screen } from "../../components/ui/Screen";
 import { AppText } from "../../components/ui/AppText";
 import { Avatar } from "../../components/ui/Avatar";
@@ -9,6 +10,7 @@ import { TextField } from "../../components/ui/TextField";
 import { showAlert } from "../../components/ui/alerts";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { usePhotoPicker } from "../../hooks/usePhotoPicker";
 import {
   confirmPhoneChange,
   isRecentLoginError,
@@ -16,6 +18,7 @@ import {
   sendPhoneVerification,
   updateProfileFields,
 } from "../../services/profileService";
+import { uploadProfilePhoto } from "../../services/storageService";
 import { logAuthEvent } from "../../services/telemetryService";
 import {
   describeSendCodeError,
@@ -76,6 +79,8 @@ export default function EditProfile() {
   const [email, setEmail] = useState(initial.email);
   const [phone, setPhone] = useState(initial.phone);
   const [saving, setSaving] = useState(false);
+  const photoPicker = usePhotoPicker({ size: 512, front: true, square: true });
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   // Set while an SMS code is outstanding (see VerificationPurpose).
   const [verification, setVerification] = useState<PendingVerification | null>(
     null,
@@ -103,6 +108,26 @@ export default function EditProfile() {
     lastName.trim().length > 0 &&
     EMAIL_RE.test(email.trim()) &&
     phone.length === 10;
+
+  /** Take or choose a photo, crop it square, upload it, refresh. */
+  const changePhoto = async () => {
+    if (!currentUser || uploadingPhoto || photoPicker.busy) return;
+    const picked = await photoPicker.pick("Profile photo");
+    if (!picked) return;
+    setUploadingPhoto(true);
+    try {
+      await uploadProfilePhoto(currentUser.uid, picked.uri);
+      await refreshProfile();
+    } catch (err) {
+      console.error("Error uploading profile photo:", err);
+      showAlert(
+        "Could not upload",
+        "We couldn't upload your photo. Please check your connection and try again.",
+      );
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const writeProfile = async () => {
     if (!currentUser) return;
@@ -238,15 +263,40 @@ export default function EditProfile() {
   return (
     <Screen scroll edges={["left", "right"]}>
       <View style={styles.hero}>
-        <Avatar
-          firstName={firstName}
-          lastName={lastName}
-          photoUrl={userProfile?.photoUrl}
-          tint={isDriver ? colors.primary : colors.secondary}
-          size={84}
-        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Change profile photo"
+          onPress={() => void changePhoto()}
+          disabled={uploadingPhoto || photoPicker.busy}
+          style={styles.avatarWrap}
+        >
+          <Avatar
+            firstName={firstName}
+            lastName={lastName}
+            photoUrl={userProfile?.photoUrl}
+            tint={isDriver ? colors.primary : colors.secondary}
+            size={96}
+          />
+          <View
+            style={[
+              styles.camera,
+              {
+                backgroundColor: colors.primary,
+                borderColor: colors.background,
+              },
+            ]}
+          >
+            {uploadingPhoto || photoPicker.busy ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <Ionicons name="camera" size={16} color={colors.onPrimary} />
+            )}
+          </View>
+        </Pressable>
         <AppText variant="small" color="textMuted" align="center">
-          Profile photos arrive in a later update.
+          {uploadingPhoto
+            ? "Uploading your photo…"
+            : "Tap the photo to change it."}
         </AppText>
       </View>
 
@@ -364,6 +414,18 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   form: { gap: spacing.lg },
+  avatarWrap: { position: "relative" },
+  camera: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   verify: {
     marginTop: spacing.xl,
     padding: spacing.lg,
