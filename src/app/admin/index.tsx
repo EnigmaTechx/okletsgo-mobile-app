@@ -12,6 +12,7 @@ import {
 import { AppText } from "../../components/ui/AppText";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { isProductOwner } from "../../config/appRoles";
 import { fetchAdminOverview } from "../../services/adminStatsService";
 import { radius, spacing } from "../../theme/tokens";
 
@@ -51,6 +52,14 @@ const LINKS: { href: string; icon: Icon; title: string; sub: string }[] = [
     sub: "This week, this month, six months",
   },
 ];
+
+/** Owner only: who riders book through, and the fallback. */
+const DISPATCH_LINK: (typeof LINKS)[number] = {
+  href: "/admin/dispatch",
+  icon: "git-network-outline",
+  title: "Dispatch",
+  sub: "Who riders book through, and the fallback",
+};
 
 export default function AdminHome() {
   const router = useRouter();
@@ -97,42 +106,44 @@ export default function AdminHome() {
       {error ? <ErrorBox message={error} onRetry={reload} /> : null}
 
       <View style={styles.links}>
-        {LINKS.map((l) => (
-          <Pressable
-            key={l.href}
-            accessibilityRole="button"
-            onPress={() => router.push(l.href as never)}
-            style={({ pressed }) => [
-              styles.link,
-              {
-                backgroundColor: pressed
-                  ? colors.surfaceRaised
-                  : colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.linkIcon,
-                { backgroundColor: colors.surfaceRaised },
+        {(isProductOwner(userProfile) ? [...LINKS, DISPATCH_LINK] : LINKS).map(
+          (l) => (
+            <Pressable
+              key={l.href}
+              accessibilityRole="button"
+              onPress={() => router.push(l.href as never)}
+              style={({ pressed }) => [
+                styles.link,
+                {
+                  backgroundColor: pressed
+                    ? colors.surfaceRaised
+                    : colors.surface,
+                  borderColor: colors.border,
+                },
               ]}
             >
-              <Ionicons name={l.icon} size={22} color={colors.primary} />
-            </View>
-            <View style={styles.flex}>
-              <AppText variant="bodyStrong">{l.title}</AppText>
-              <AppText variant="small" color="textSecondary">
-                {l.sub}
-              </AppText>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.textMuted}
-            />
-          </Pressable>
-        ))}
+              <View
+                style={[
+                  styles.linkIcon,
+                  { backgroundColor: colors.surfaceRaised },
+                ]}
+              >
+                <Ionicons name={l.icon} size={22} color={colors.primary} />
+              </View>
+              <View style={styles.flex}>
+                <AppText variant="bodyStrong">{l.title}</AppText>
+                <AppText variant="small" color="textSecondary">
+                  {l.sub}
+                </AppText>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.textMuted}
+              />
+            </Pressable>
+          ),
+        )}
       </View>
     </AdminScreen>
   );

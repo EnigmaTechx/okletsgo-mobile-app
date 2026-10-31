@@ -24,12 +24,19 @@ export function PushNotifications() {
 
   useEffect(() => {
     if (!ready || !uid) return;
-    return listenForPushes(async ({ rideId }) => {
+    return listenForPushes(async ({ rideId, type }) => {
       if (!rideId) return;
       // A cold start can report the same tap twice (FCM + local).
       const key = `${rideId}:${Date.now() >> 13}`;
       if (handled.current === key) return;
       handled.current = key;
+      if (type === "chat") {
+        router.push({
+          pathname: "/(common)/chat/[id]",
+          params: { id: rideId },
+        });
+        return;
+      }
       try {
         const ride = await fetchRide(rideId);
         if (!ride) return;

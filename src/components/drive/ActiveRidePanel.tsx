@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import { Image, Linking, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { isProductOwner } from "../../config/appRoles";
 import type { RideRequest } from "../../interfaces/ride";
 import type { UserProfile } from "../../interfaces/user";
+import { chatAvailable, unreadFor } from "../../services/chat";
+import { callableMessage, reassignRide } from "../../services/dispatch";
 import {
+  fetchRideContactPhone,
   subscribeOtherLiveRide,
   type CompleteTripMeta,
 } from "../../services/driverService";
@@ -34,6 +39,7 @@ import {
   SheetHead,
   Strong,
 } from "../rides/SheetParts";
+import { AssignDriverSheet } from "./AssignDriverSheet";
 import { riderName } from "./DriverTripCards";
 import { SwipeButton } from "./SwipeButton";
 import { TimeChangeReviewCard } from "./TimeChangeReviewCard";
@@ -90,6 +96,8 @@ interface Props {
   onStartTrip: () => Promise<void>;
   onComplete: (meta?: CompleteTripMeta) => Promise<void>;
   onCancelled: () => void;
+  /** The dispatcher moved the ride to another driver: leave the screen. */
+  onReassigned: () => void;
   /** Height of the header block, for the collapsed sheet. */
   onHeaderLayout?: (height: number) => void;
 }
@@ -108,9 +116,11 @@ const shortDate = (iso?: string): string => {
  * The driver's trip sheet, laid out like the Ionic ActiveRideControls: the
  * status pill with the pickup time (or "Started 7:05 PM") and the live
  * distance under it, the rider and the payout, the route with its
- * distance tags, Call and GPS, the slide-to-confirm for the next step with
- * its timers (45-minute start lock, 5-minute wait, pickup-time grace), and
- * the cancel action under it. Every confirmation is a ConfirmSheet.
+ * distance tags, Chat (open from the trip's start) and GPS, the
+ * slide-to-confirm for the next step with its timers (45-minute start lock,
+ * 5-minute wait, pickup-time grace), and the cancel action under it. The
+ * owner also gets Call; the dispatcher can reassign an accepted ride. Every
+ * confirmation is a ConfirmSheet.
  */
 export function ActiveRidePanel({
   ride,
@@ -121,11 +131,14 @@ export function ActiveRidePanel({
   onStartTrip,
   onComplete,
   onCancelled,
+  onReassigned,
   onHeaderLayout,
 }: Props) {
   const { colors } = useTheme();
-  const { userProfile } = useAuth();
+  const router = useRouter();
+  const { userProfile, currentUser } = useAuth();
   const toast = useToast();
+  const me = currentUser?.uid;
   // Sandbox drivers skip the start-trip unlock timer and the occupied gate.
   const isTestDriver = userProfile?.isTestAccount === true;
 
@@ -141,6 +154,7 @@ export function ActiveRidePanel({
   const [earlyNoticeOpen, setEarlyNoticeOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [occupied, setOccupied] = useState(false);
+  const [reassignOpen, setReassignOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   const photosVisible = CLIENT_PHOTO_VISIBLE.has(ride.status);
@@ -223,13 +237,41 @@ export function ActiveRidePanel({
       toast("Couldn't open navigation.", { type: "error" }),
     );
   };
-  const call = () => {
-    const digits = (ride.passengerPhone || "").replace(/\D/g, "");
+  // Chat replaced calling (no phone numbers shared). The owner keeps Call,
+  // reading the number from the ride's private contact document.
+  const canChat = chatAvailable(ride, now);
+  const unread = unreadFor(ride, me);
+  const openChat = () =>
+    router.push({
+      pathname: "/(common)/chat/[id]",
+      params: { id: ride.id as string },
+    });
+  const ownerCall = isProductOwner(userProfile);
+  const call = async () => {
+    const phone = await fetchRideContactPhone(ride);
+    const digits = (phone || "").replace(/\D/g, "");
     if (!digits)
       return toast("No phone number on this booking.", { type: "error" });
     Linking.openURL(`tel:+${digits}`).catch(() =>
       toast("Couldn't start a call.", { type: "error" }),
     );
+  };
+  // Dispatcher: an accepted (not started) ride of mine can move to another driver.
+  const canReassign =
+    ride.status === "accepted" &&
+    !!ride.dispatcherId &&
+    ride.dispatcherId === me &&
+    ride.driverId === me;
+  const handleReassign = async (driverId: string, note: string) => {
+    if (!ride.id) return;
+    try {
+      const name = await reassignRide(ride.id, driverId, note);
+      setReassignOpen(false);
+      toast(`Reassigned to ${name}`, { type: "success" });
+      onReassigned();
+    } catch (e) {
+      throw new Error(callableMessage(e, "Couldn't reassign the ride."));
+    }
   };
 
   const step = async (action: () => Promise<void>, failure: string) => {
@@ -423,10 +465,31 @@ export function ActiveRidePanel({
   };
 
   // Under the swipe: cancel before the trip, end early during it, or the
-  // no-show cancel once the wait timer has run out.
+  // no-show cancel once the wait timer has run out. The dispatcher's
+  // accepted ride pairs Cancel with Reassign.
   const secondaryAction =
-    ride.status === "completed" ? null : ride.status === "arrived" &&
-      canCancelNoShow ? (
+    ride.status === "completed" ? null : canReassign ? (
+      <View style={styles.pair}>
+        <SheetButton
+          title="Reassign"
+          icon="swap-horizontal-outline"
+          kind="outline-primary"
+          size="sm"
+          onPress={() => setReassignOpen(true)}
+          disabled={cancelling}
+          style={styles.grow}
+        />
+        <SheetButton
+          title="Cancel ride"
+          icon="close-circle-outline"
+          kind="outline-danger"
+          size="sm"
+          onPress={openCancel}
+          disabled={cancelling}
+          style={styles.grow}
+        />
+      </View>
+    ) : ride.status === "arrived" && canCancelNoShow ? (
       <SheetButton
         title="Cancel · client no-show"
         icon="warning-outline"
@@ -543,14 +606,32 @@ export function ActiveRidePanel({
         </SheetCard>
 
         <View style={styles.tools}>
-          <SheetButton
-            title="Call"
-            icon="call"
-            kind="outline-primary"
-            onPress={call}
-            disabled={cancelling}
-            style={styles.tool}
-          />
+          <View style={styles.tool}>
+            <SheetButton
+              title="Chat"
+              icon="chatbubble-ellipses-outline"
+              kind="outline-primary"
+              onPress={openChat}
+              disabled={cancelling || !canChat}
+            />
+            {unread > 0 ? (
+              <View style={[styles.badge, { backgroundColor: colors.danger }]}>
+                <AppText variant="eyebrow" style={{ color: colors.background }}>
+                  {unread > 9 ? "9+" : String(unread)}
+                </AppText>
+              </View>
+            ) : null}
+          </View>
+          {ownerCall ? (
+            <SheetButton
+              title="Call"
+              icon="call"
+              kind="outline-primary"
+              onPress={() => void call()}
+              disabled={cancelling}
+              style={styles.tool}
+            />
+          ) : null}
           <SheetButton
             title="GPS"
             icon="navigate-circle-outline"
@@ -560,6 +641,11 @@ export function ActiveRidePanel({
             style={styles.tool}
           />
         </View>
+        {ride.status === "accepted" ? (
+          <AppText variant="small" color="textMuted" align="center">
+            Chat with the rider opens when you start the trip.
+          </AppText>
+        ) : null}
       </View>
 
       <View style={[styles.foot, { borderTopColor: colors.border }]}>
@@ -635,6 +721,16 @@ export function ActiveRidePanel({
         dismissible={false}
       />
 
+      {canReassign ? (
+        <AssignDriverSheet
+          visible={reassignOpen}
+          mode="reassign"
+          ride={ride}
+          onClose={() => setReassignOpen(false)}
+          onAssign={handleReassign}
+        />
+      ) : null}
+
       <Sheet visible={photoOpen} onClose={() => setPhotoOpen(false)}>
         <View style={styles.photoSheet}>
           {client?.photoUrl ? (
@@ -664,6 +760,19 @@ const styles = StyleSheet.create({
   avatarImg: { width: 52, height: 52 },
   tools: { flexDirection: "row", gap: spacing.md },
   tool: { flex: 1 },
+  badge: {
+    position: "absolute",
+    top: -6,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pair: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xs },
+  grow: { flex: 1 },
   foot: {
     gap: spacing.md,
     paddingTop: spacing.md,

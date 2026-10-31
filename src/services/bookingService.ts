@@ -9,6 +9,7 @@ import {
 import { FEATURES } from "../config/features";
 import type { RideRequest } from "../interfaces/ride";
 import type { UserProfile } from "../interfaces/user";
+import type { PublicProfile } from "./publicProfiles";
 import { round2 } from "../utils/money";
 
 /**
@@ -39,9 +40,15 @@ export type BookingPromo =
     }
   | { kind: "km_reward"; creditKm: number; discountAmount: number };
 
+/** What the booking needs to know about the driver: the public profile. */
+export type BookingDriver = Pick<
+  PublicProfile,
+  "uid" | "firstName" | "photoUrl" | "isTestAccount" | "vehicle" | "isOnline"
+> & { lastName?: string };
+
 export interface BookingInput {
   rider: UserProfile;
-  driver: UserProfile;
+  driver: BookingDriver;
   pickup: PlaceInput;
   destination: PlaceInput;
   /** Rounded driving distance (one decimal), as priced. */
@@ -50,6 +57,8 @@ export interface BookingInput {
   fare: number;
   serviceFee: number;
   scheduledForIso: string;
+  /** Hand the request to the next driver if this one declines. Always
+   *  false when the rider booked through the dispatcher. */
   autoForward: boolean;
   passengerName?: string;
   passengerPhone?: string;
@@ -106,7 +115,9 @@ export function buildRideRequest(
     passengerPhone: input.passengerPhone?.trim() || rider.phone || "",
     driverId: driver.uid,
     driverFirstName: driver.firstName,
-    driverLastName: driver.lastName,
+    // The public profile has no last name; the notifyNewRideRequest
+    // function fills it in from the driver's private profile.
+    driverLastName: driver.lastName ?? "",
     driverVehicle: `${vehicle?.make || ""} ${vehicle?.model || ""}`.trim(),
     driverVehicleColor: vehicle?.color || "",
     driverPlateNumber: vehicle?.plateNumber || "",

@@ -5,6 +5,7 @@ import type { RideRequest } from "../../interfaces/ride";
 import { firstLine, timeParts } from "../../utils/address";
 import { driverPayout } from "../../utils/fareCalculator";
 import { formatKm } from "../../utils/geo";
+import { dispatchChip } from "../../utils/driverHome";
 import { groupRidesByDay, upcomingDayLabel } from "../../utils/rideDayGroups";
 import { timeUntil } from "../../utils/timeUntil";
 import { radius, spacing } from "../../theme/tokens";
@@ -133,19 +134,34 @@ export function NextPickupStrip({
 
 export type DriverTripTheme = "upcoming" | "requests";
 
+/** "Request", "Today · request" or "Assigned by Andy" under the name. */
+const requestTag = (ride: RideRequest, uid?: string): string => {
+  if (ride.assignedBy && ride.dispatcherId !== uid)
+    return `Assigned by ${ride.assignedByFirstName || "the dispatcher"}`;
+  return "New request";
+};
+
 export function DriverTripRow({
   ride,
   theme,
+  chip,
+  uid,
   onOpen,
 }: {
   ride: RideRequest;
-  theme: DriverTripTheme;
+  /** Colour of the left accent; rides mixed in a group pick by status. */
+  theme?: DriverTripTheme;
+  /** A small line at the right ("Pickup in 20 min", "Auto-assigns in 7 min"). */
+  chip?: string | null;
+  uid?: string;
   onOpen: (id: string) => void;
 }) {
   const { colors } = useTheme();
   const [time, ampm] = timeParts(ride.scheduledTime);
   const km = Number(ride.actualDistanceKm ?? ride.distance);
-  const accent = theme === "requests" ? colors.accent : colors.secondary;
+  const isRequest = ride.status === "pending";
+  const kind: DriverTripTheme = theme ?? (isRequest ? "requests" : "upcoming");
+  const accent = kind === "requests" ? colors.accent : colors.secondary;
   return (
     <Pressable
       accessibilityRole="button"
@@ -172,9 +188,9 @@ export function DriverTripRow({
         <AppText variant="bodyStrong" numberOfLines={1}>
           {riderName(ride)}
         </AppText>
-        {theme === "requests" ? (
+        {isRequest ? (
           <AppText variant="small" color="accent">
-            New request
+            {requestTag(ride, uid)}
           </AppText>
         ) : null}
         <AppText variant="small" color="textMuted" numberOfLines={1}>
@@ -191,22 +207,40 @@ export function DriverTripRow({
             {formatKm(km)}
           </AppText>
         ) : null}
+        {chip ? (
+          <AppText variant="small" color="accent" numberOfLines={1}>
+            {chip}
+          </AppText>
+        ) : null}
       </View>
     </Pressable>
   );
 }
+
+/** "1 ride", "3 rides · 1 request". */
+const dayCount = (rides: RideRequest[]): string => {
+  const req = rides.filter((r) => r.status === "pending").length;
+  const base = rides.length === 1 ? "1 ride" : `${rides.length} rides`;
+  return req
+    ? `${base} · ${req === 1 ? "1 request" : `${req} requests`}`
+    : base;
+};
 
 export function DriverTripGroups({
   theme,
   title,
   rides,
   now = new Date(),
+  uid,
+  chipFor,
   onOpen,
 }: {
   theme: DriverTripTheme;
   title: string;
   rides: RideRequest[];
   now?: Date;
+  uid?: string;
+  chipFor?: (ride: RideRequest) => string | null;
   onOpen: (id: string) => void;
 }) {
   const { colors } = useTheme();
@@ -228,7 +262,7 @@ export function DriverTripGroups({
               {g.label}
             </AppText>
             <AppText variant="small" color="textMuted">
-              {g.rides.length === 1 ? "1 ride" : `${g.rides.length} rides`}
+              {dayCount(g.rides)}
             </AppText>
           </View>
           <View style={styles.day}>
@@ -236,7 +270,8 @@ export function DriverTripGroups({
               <DriverTripRow
                 key={r.id}
                 ride={r}
-                theme={theme}
+                uid={uid}
+                chip={chipFor?.(r)}
                 onOpen={onOpen}
               />
             ))}
@@ -246,6 +281,75 @@ export function DriverTripGroups({
     </View>
   );
 }
+
+/**
+ * Requests for today and tomorrow, pinned above everything else so an
+ * imminent request can't hide under accepted rides. Shown offline too: the
+ * rider booked this driver by name.
+ */
+export function NeedsResponse({
+  rides,
+  todayCount,
+  online,
+  uid,
+  now = new Date(),
+  onOpen,
+}: {
+  rides: RideRequest[];
+  todayCount: number;
+  online: boolean;
+  uid?: string;
+  now?: Date;
+  onOpen: (id: string) => void;
+}) {
+  const { colors } = useTheme();
+  if (rides.length === 0) return null;
+  const n = rides.length;
+  return (
+    <View style={styles.section}>
+      <View
+        style={[
+          styles.alert,
+          { backgroundColor: colors.surface, borderColor: colors.accent },
+        ]}
+      >
+        <Ionicons name="alert-circle" size={22} color={colors.accent} />
+        <View style={styles.flex}>
+          <AppText variant="bodyStrong">
+            {n === 1 ? "1 request needs" : `${n} requests need`} a response
+            {todayCount ? ` · ${todayCount} today` : ""}
+          </AppText>
+          {!online ? (
+            <AppText variant="small" color="textSecondary">
+              You&apos;re offline, but these were booked with you. You can still
+              respond.
+            </AppText>
+          ) : null}
+        </View>
+      </View>
+      {rides.map((r) => (
+        <DriverTripRow
+          key={r.id}
+          ride={r}
+          uid={uid}
+          chip={dispatchChip(r, uid, now.getTime()) ?? pickupChip(r, now)}
+          onOpen={onOpen}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** "Pickup in 20 min" for a request within the hour, else null. */
+const pickupChip = (r: RideRequest, now: Date): string | null => {
+  const until = timeUntil(r.scheduledTime, now);
+  if (!until || until === "overdue")
+    return until === "overdue" ? "Pickup time passed" : null;
+  if (until === "now") return "Pickup now";
+  return until.startsWith("in ") && until.endsWith(" min")
+    ? `Pickup ${until}`
+    : null;
+};
 
 const styles = StyleSheet.create({
   inline: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -281,6 +385,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   section: { gap: spacing.sm, marginTop: spacing.xl },
+  alert: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+  },
   day: { gap: spacing.sm },
   dayHead: {
     flexDirection: "row",

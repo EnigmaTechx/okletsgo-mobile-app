@@ -34,31 +34,22 @@ and nothing half-cut beneath it.
   under them (route card with the date, time and Edit time inline, the
   Total card, the hand-off note, the outline Cancel button) follows the
   Ionic sheet.
-- Call stays on the driver's sheet. The Ionic app replaced it with in-app
-  chat on 27 Oct (see below); until chat is ported there is nothing else to
-  put there.
+- Chat replaced Call on the driver's sheet (the owner keeps Call), see
+  `docs/CHAT-DISPATCH.md`.
 
 ## Not matched: features the Ionic app added after the freeze
 
 These are behaviour, not styling, and need their own decision and phase.
-Each is live in the Ionic app at v1.7.1:
+Each is live in the Ionic app at v1.7.1. **In-app ride chat**, **dispatch**
+and the **public profiles** reader (with its fallback to `users/{uid}`) are
+now ported: see `docs/CHAT-DISPATCH.md`. Still open:
 
-- **In-app ride chat** (`sendRideMessage` function, `rides/{id}/messages`,
-  masked contact details, unread badges, a RideChat page). Calling was
-  removed from both sides.
-- **Dispatch**: riders book through one dispatcher (Andy), who accepts,
-  assigns or reassigns rides (`config/dispatch`, an Assign sheet, an admin
-  Dispatch page, `dispatcherId` / `assignedBy` on the ride).
-- **Public profiles**: `publicProfiles/{uid}` mirrored from `users/{uid}`
-  by a function, read instead of other people's user documents. The rules
-  still allow the old reads today; the Ionic code is written for the day
-  they stop.
 - **Address privacy**: drivers see street and city only outside a trip
   (`utils/addressPrivacy.ts`), with GPS and the full address opening at trip
   start.
 - **Account purge** function (30 days after the request, rides anonymised).
 - **App Check** (Play Integrity / App Attest) on the Firebase project.
 - Smaller: impossible phone numbers caught before sending a code, the
-  SMS-region block message, today's and tomorrow's requests pinned on the
-  driver home, the owner's Call button, per-trip ratings hidden from
-  drivers, larger rider detail text.
+  SMS-region block message, per-trip ratings hidden from drivers, larger
+  rider detail text. (Today's and tomorrow's requests pinned on the driver
+  home and the owner's Call button came with the chat/dispatch port.)

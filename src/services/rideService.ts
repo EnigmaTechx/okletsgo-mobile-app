@@ -106,8 +106,10 @@ export const cancelRide = async (
 export interface DeclineResult {
   /** True when the request was handed to another driver instead of ending. */
   forwarded: boolean;
-  /** The new driver's first name when forwarded. */
+  /** The new driver's first name when forwarded or returned. */
   driverFirstName?: string;
+  /** Dispatch: an assigned driver's "Can't take it" sent it back to the dispatcher. */
+  returned?: boolean;
 }
 
 export const respondToRide = async (
@@ -446,32 +448,6 @@ export async function fetchRideHistoryPage(
     cursor: snap.docs[snap.docs.length - 1] ?? null,
     hasMore: snap.docs.length === HISTORY_PAGE_SIZE,
   };
-}
-
-/**
- * Drivers a rider may book right now: online, and not a sandbox driver
- * unless the rider is a sandbox account too. Drivers with another ride
- * nearby are deliberately kept: the app runs on driver discretion.
- */
-export async function listBookableDrivers(
-  isTestClient: boolean,
-): Promise<UserProfile[]> {
-  const snap = await getDocs(
-    query(
-      collection(db, "users"),
-      where("role", "==", "driver"),
-      where("isOnline", "==", true),
-    ),
-  );
-  return snap.docs
-    .map((d) => d.data() as UserProfile)
-    .filter((d) => !d.isTestAccount || isTestClient);
-}
-
-/** Re-check at confirmation time that the chosen driver is still online. */
-export async function isDriverOnline(uid: string): Promise<boolean> {
-  const snap = await getDoc(doc(db, "users", uid));
-  return snap.exists() && (snap.data() as UserProfile).isOnline === true;
 }
 
 /** The rider's profile fields used to fill a booking. */

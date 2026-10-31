@@ -55,19 +55,24 @@ export const clientStatusLabel = (
     | "driverLocation"
     | "pickup"
     | "destination"
+    | "dispatcherId"
+    | "assignedBy"
   >,
   etaSeconds: number | null,
   now = new Date(),
 ): string => {
   switch (ride.status) {
     case "pending": {
+      // Booked through the dispatcher: he confirms or assigns it, and the
+      // rider never sees the hand-offs in between.
+      if (ride.dispatcherId) return "Confirming your driver…";
       const last = ride.forwardHistory?.[ride.forwardHistory.length - 1];
       return last
         ? `${last.fromDriverFirstName} can't take this one. Waiting for ${ride.driverFirstName || "a driver"}…`
         : "Waiting for driver…";
     }
     case "accepted":
-      return "Driver accepted";
+      return ride.assignedBy ? "Driver confirmed" : "Driver accepted";
     case "heading_to_pickup":
       return pickupEtaLabel(
         etaSeconds ?? fallbackEtaSeconds(ride.driverLocation, ride.pickup),
@@ -97,6 +102,8 @@ export const clientHeadline = (
     | "driverLocation"
     | "pickup"
     | "destination"
+    | "dispatcherId"
+    | "assignedBy"
   >,
   etaSeconds: number | null,
   now = new Date(),
@@ -104,13 +111,16 @@ export const clientHeadline = (
   const name = ride.driverFirstName || "Your driver";
   switch (ride.status) {
     case "pending": {
+      if (ride.dispatcherId) return "Confirming your driver…";
       const last = ride.forwardHistory?.[ride.forwardHistory.length - 1];
       return last
         ? `${last.fromDriverFirstName} can't take this one. Waiting for ${ride.driverFirstName || "a driver"}…`
         : "Waiting for a driver…";
     }
     case "accepted":
-      return `${name} accepted your ride`;
+      return ride.assignedBy
+        ? `${name} confirmed your ride`
+        : `${name} accepted your ride`;
     case "heading_to_pickup": {
       const secs =
         etaSeconds ?? fallbackEtaSeconds(ride.driverLocation, ride.pickup);

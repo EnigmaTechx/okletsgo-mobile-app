@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import type { RideRequest } from "../../interfaces/ride";
 import type { UserProfile } from "../../interfaces/user";
+import { chatAvailable, unreadFor } from "../../services/chat";
 import { fetchUserProfile } from "../../services/rideService";
 import { fetchEtaSeconds } from "../../services/routing";
 import { formatDayAndTime, formatTime } from "../../utils/address";
@@ -43,6 +46,12 @@ const PLATE_VISIBLE = new Set<RideRequest["status"]>([
   "in_progress",
   "completed",
 ]);
+const CHAT_STATUSES = new Set<RideRequest["status"]>([
+  "accepted",
+  "heading_to_pickup",
+  "arrived",
+  "in_progress",
+]);
 const STAR_GOLD = "#F5B301";
 const STEPS = ["Accepted", "On the way", "Arrived", "On trip"];
 
@@ -65,6 +74,8 @@ export function ClientRideStatusPanel({
   onHeaderLayout,
 }: Props) {
   const { colors } = useTheme();
+  const router = useRouter();
+  const { currentUser } = useAuth();
   const [driver, setDriver] = useState<UserProfile | null>(null);
   const [eta, setEta] = useState<{ key: string; seconds: number } | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -149,8 +160,21 @@ export function ClientRideStatusPanel({
     ? null
     : `${whenDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · ${formatTime(when)}`;
   const tripKm = Number(ride.distance);
+  // Through the dispatcher there is no hand-off: he confirms or assigns.
   const forwardsOnDecline =
-    ride.status === "pending" && ride.autoForward !== false;
+    ride.status === "pending" &&
+    !ride.dispatcherId &&
+    ride.autoForward !== false;
+  // Chat with the driver: shown from acceptance, enabled once the driver
+  // sets off (and read-only afterwards if anything was said).
+  const showChat = !!ride.driverId && CHAT_STATUSES.has(ride.status);
+  const canChat = showChat && chatAvailable(ride);
+  const unread = unreadFor(ride, currentUser?.uid);
+  const openChat = () =>
+    router.push({
+      pathname: "/(common)/chat/[id]",
+      params: { id: ride.id as string },
+    });
 
   return (
     <View style={styles.root}>
@@ -240,6 +264,45 @@ export function ClientRideStatusPanel({
           </View>
           {vehiclePhotoUrl ? (
             <Image source={{ uri: vehiclePhotoUrl }} style={styles.carPhoto} />
+          ) : null}
+          {showChat ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                canChat
+                  ? `Chat with ${ride.driverFirstName || "your driver"}`
+                  : "Chat opens when your driver heads out"
+              }
+              accessibilityState={{ disabled: !canChat }}
+              disabled={!canChat}
+              onPress={openChat}
+              style={[
+                styles.chatBtn,
+                {
+                  backgroundColor: canChat
+                    ? colors.primary
+                    : colors.surfaceRaised,
+                  opacity: canChat ? 1 : 0.7,
+                },
+              ]}
+            >
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={22}
+                color={canChat ? colors.onPrimary : colors.textMuted}
+              />
+              {unread > 0 ? (
+                <View
+                  style={[
+                    styles.unread,
+                    {
+                      backgroundColor: colors.danger,
+                      borderColor: colors.background,
+                    },
+                  ]}
+                />
+              ) : null}
+            </Pressable>
           ) : null}
         </Pressable>
       </View>
@@ -386,6 +449,22 @@ const styles = StyleSheet.create({
   rating: { flexDirection: "row", alignItems: "center", gap: 3 },
   plate: { letterSpacing: 1 },
   carPhoto: { width: 72, height: 48, borderRadius: radius.sm },
+  chatBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unread: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+  },
   routeCard: { marginTop: spacing.sm },
   editTime: {
     flexDirection: "row",

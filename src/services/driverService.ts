@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -17,6 +18,27 @@ import {
 import type { RideRequest } from "../interfaces/ride";
 import { calculateFare, SERVICE_FEE } from "../utils/fareCalculator";
 import { haversineKm, type LatLng } from "../utils/geo";
+
+/**
+ * The rider's phone number for a ride. The notifyNewRideRequest function
+ * moves it off the ride document into rides/{id}/private/contact (rider,
+ * admin and owner may read it); older rides still carry passengerPhone.
+ */
+export async function fetchRideContactPhone(
+  ride: RideRequest,
+): Promise<string | null> {
+  if (ride.passengerPhone) return ride.passengerPhone;
+  if (!ride.id) return null;
+  try {
+    const snap = await getDoc(doc(db, "rides", ride.id, "private", "contact"));
+    const phone = (snap.data() as { passengerPhone?: string } | undefined)
+      ?.passengerPhone;
+    return phone || null;
+  } catch (e) {
+    console.warn("[rides] contact document unavailable", e);
+    return null;
+  }
+}
 
 /**
  * Everything the driver side writes, on the same fields and in the same

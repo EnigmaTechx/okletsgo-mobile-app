@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
-import type { UserProfile } from "../../interfaces/user";
-import type { PlaceInput } from "../../services/bookingService";
+import type { BookingDriver, PlaceInput } from "../../services/bookingService";
 
 /**
  * The booking wizard's working state, shared by its four steps instead of
@@ -13,7 +12,10 @@ export interface BookingDraft {
   distanceKm: number | null;
   fare: number | null;
   scheduledForIso: string | null;
-  driver: UserProfile | null;
+  driver: BookingDriver | null;
+  /** The driver is the dispatcher (config/dispatch): no hand-off switch,
+   *  bookable while offline, "Confirming your driver" wording. */
+  viaDispatch: boolean;
 }
 
 const EMPTY: BookingDraft = {
@@ -23,6 +25,7 @@ const EMPTY: BookingDraft = {
   fare: null,
   scheduledForIso: null,
   driver: null,
+  viaDispatch: false,
 };
 
 interface BookingContextValue {
