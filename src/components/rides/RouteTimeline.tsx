@@ -14,7 +14,9 @@ interface Props {
   /** Right-hand column per row (a time, a tag). */
   pickupAside?: React.ReactNode;
   dropoffAside?: React.ReactNode;
-  /** Appended to the sub line: "Mississauga · 3.2 km to pickup". */
+  /** A line of its own under the address: the pickup date and time, or
+   *  "3.2 km to pickup". Kept off the city line so a long address never
+   *  pushes it into a wrap. */
   pickupSuffix?: string | null;
   dropoffSuffix?: string | null;
   /** A small control after the pickup sub line (the rider's "Edit time"). */
@@ -102,7 +104,10 @@ function Stop({
   size: RouteSize;
 }) {
   const { colors } = useTheme();
-  const subLine = [sub, suffix].filter(Boolean).join(" · ");
+  const subStyle = {
+    fontSize: SUB_SIZE[size],
+    lineHeight: SUB_SIZE[size] * 1.4,
+  };
   return (
     <View style={[styles.stop, { paddingBottom: bottom }]}>
       <View style={styles.text}>
@@ -115,21 +120,22 @@ function Stop({
         >
           {main || "—"}
         </AppText>
-        {subLine || after ? (
+        {sub ? (
+          <AppText
+            style={[styles.sub, subStyle, { color: colors.textMuted }]}
+            numberOfLines={2}
+          >
+            {sub}
+          </AppText>
+        ) : null}
+        {suffix || after ? (
           <View style={styles.subRow}>
-            {subLine ? (
+            {suffix ? (
               <AppText
-                style={[
-                  styles.sub,
-                  {
-                    color: colors.textMuted,
-                    fontSize: SUB_SIZE[size],
-                    lineHeight: SUB_SIZE[size] * 1.4,
-                  },
-                ]}
-                numberOfLines={2}
+                style={[styles.sub, subStyle, { color: colors.textSecondary }]}
+                numberOfLines={1}
               >
-                {subLine}
+                {suffix}
               </AppText>
             ) : null}
             {after}
@@ -157,6 +163,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexWrap: "wrap",
     gap: 8,
+    marginTop: 2,
   },
   sub: { fontFamily: fontFamily.semibold, flexShrink: 1 },
   aside: { alignItems: "flex-end" },
