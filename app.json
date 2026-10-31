@@ -14,10 +14,7 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": [
-          "location",
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["location", "remote-notification"]
       },
       "buildNumber": "35"
     },
@@ -53,6 +50,13 @@
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "OK Let's Go uses your photos for your profile picture and your vehicle photo.",
+          "cameraPermission": "OK Let's Go uses the camera to take your profile picture and your vehicle photo."
         }
       ],
       [

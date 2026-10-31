@@ -9,7 +9,9 @@ import { Avatar } from "./ui/Avatar";
 import { MenuRow } from "./ui/MenuRow";
 import { showAlert } from "./ui/alerts";
 import { StatsStrip } from "./StatsStrip";
+import { canAccessAdminSection } from "../config/appRoles";
 import { useAuth } from "../contexts/AuthContext";
+import { useFeatureFlags } from "../contexts/FeatureFlagsContext";
 import { type ThemePreference, useTheme } from "../contexts/ThemeContext";
 import { useBgLocationConsent } from "../hooks/useBgLocationConsent";
 import { scheduleAccountDeletion } from "../services/profileService";
@@ -31,6 +33,7 @@ export function AccountScreen() {
   const router = useRouter();
   const { userProfile, currentUser, logout } = useAuth();
   const { colors, preference, setPreference } = useTheme();
+  const { isVisible } = useFeatureFlags();
   const bgLocation = useBgLocationConsent();
   const [rideCount, setRideCount] = useState<number | null>(null);
 
@@ -96,6 +99,10 @@ export function AccountScreen() {
     isDriver &&
     (userProfile?.status === "pending_approval" ||
       userProfile?.isApproved === false);
+  // Remote flags (admin App Features page) and the owner role decide these.
+  const showPayment = isVisible("payment");
+  const showPayouts = isDriver && isVisible("driver_payouts");
+  const showAdmin = canAccessAdminSection(userProfile);
 
   return (
     <Screen scroll padded={false}>
@@ -191,6 +198,54 @@ export function AccountScreen() {
           />
         )}
       </View>
+
+      {showPayment || showPayouts ? (
+        <>
+          <SectionLabel text="Money" />
+          <View
+            style={[
+              styles.group,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            {showPayment ? (
+              <MenuRow
+                icon="card-outline"
+                label="Payment"
+                detail="How you pay for trips"
+                onPress={() => router.push("/(common)/payment")}
+              />
+            ) : null}
+            {showPayouts ? (
+              <MenuRow
+                icon="cash-outline"
+                label="Earnings & Payouts"
+                detail="Balance, cash out and bank account"
+                onPress={() => router.push("/(drive)/payouts")}
+              />
+            ) : null}
+          </View>
+        </>
+      ) : null}
+
+      {showAdmin ? (
+        <>
+          <SectionLabel text="Owner tools" />
+          <View
+            style={[
+              styles.group,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <MenuRow
+              icon="shield-checkmark-outline"
+              label="Admin"
+              detail="Riders, drivers, rides and weekly pay"
+              onPress={() => router.push("/admin")}
+            />
+          </View>
+        </>
+      ) : null}
 
       <SectionLabel text="Preferences" />
       <View

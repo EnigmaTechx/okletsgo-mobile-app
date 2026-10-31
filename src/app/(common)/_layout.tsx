@@ -29,6 +29,7 @@ export default function CommonLayout() {
       <Stack.Screen name="terms" options={{ title: "Terms of Use" }} />
       <Stack.Screen name="support" options={{ title: "Help & Support" }} />
       <Stack.Screen name="history/[id]" options={{ title: "Trip details" }} />
+      <Stack.Screen name="payment" options={{ title: "Payment" }} />
     </Stack>
   );
 }

@@ -23,6 +23,7 @@ export default function DriveLayout() {
     >
       <Stack.Screen name="ride/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="vehicle" options={{ title: "Vehicle" }} />
+      <Stack.Screen name="payouts" options={{ title: "Earnings & Payouts" }} />
     </Stack>
   );
 }
