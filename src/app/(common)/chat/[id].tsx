@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,7 +10,8 @@ import {
 } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
+import Reanimated, { useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../../components/ui/AppText";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -124,19 +126,45 @@ export default function RideChat() {
     }
   };
 
-  // Stick to the newest message.
+  // Stick to the newest message, also when the keyboard takes the space.
   const list = useRef<ScrollView>(null);
   const count = messages.length;
   useEffect(() => {
-    const t = setTimeout(() => list.current?.scrollToEnd({ animated: true }), 60);
+    const t = setTimeout(
+      () => list.current?.scrollToEnd({ animated: true }),
+      60,
+    );
     return () => clearTimeout(t);
   }, [count]);
+  useEffect(() => {
+    const sub = Keyboard.addListener("keyboardDidShow", () =>
+      list.current?.scrollToEnd({ animated: true }),
+    );
+    return () => sub.remove();
+  }, []);
+
+  // The screen pads its bottom by the keyboard height (`height` is 0 when
+  // closed, negative while open), and the footer gives up its safe-area
+  // padding as the keyboard comes up. Measured padding, not a frame-based
+  // avoiding view: under a native header the latter left the input hidden.
+  const { height: keyboard, progress } = useReanimatedKeyboardAnimation();
+  const bottomInset = insets.bottom;
+  const rootPad = useAnimatedStyle(() => ({
+    paddingBottom: -keyboard.value,
+  }));
+  const footerPad = useAnimatedStyle(
+    () => ({
+      paddingBottom: Math.max(spacing.sm, bottomInset * (1 - progress.value)),
+    }),
+    [bottomInset],
+  );
 
   const other = (() => {
     if (!ride) return { name: "", sub: "" };
     const pickupMain = firstLine(ride.pickup?.address);
     const time = ride.scheduledTime ? formatTime(ride.scheduledTime) : "";
-    const rider = firstName(ride.passengerName) || ride.clientFirstName || "Rider";
+    const rider =
+      firstName(ride.passengerName) || ride.clientFirstName || "Rider";
     if (isDriver)
       return {
         name: rider,
@@ -169,9 +197,8 @@ export default function RideChat() {
   const theirsBg = scheme === "dark" ? colors.surfaceRaised : colors.surface;
 
   return (
-    <KeyboardAvoidingView
-      behavior="padding"
-      style={[styles.root, { backgroundColor: colors.background }]}
+    <Reanimated.View
+      style={[styles.root, { backgroundColor: colors.background }, rootPad]}
     >
       <Stack.Screen
         options={{
@@ -262,7 +289,11 @@ export default function RideChat() {
                     size={13}
                     color={colors.textMuted}
                   />
-                  <AppText variant="small" color="textMuted" style={styles.flex}>
+                  <AppText
+                    variant="small"
+                    color="textMuted"
+                    style={styles.flex}
+                  >
                     {text}
                   </AppText>
                 </View>
@@ -295,7 +326,10 @@ export default function RideChat() {
                         ? [styles.bubbleMine, { backgroundColor: mineBg }]
                         : [
                             styles.bubbleTheirs,
-                            { backgroundColor: theirsBg, borderColor: colors.border },
+                            {
+                              backgroundColor: theirsBg,
+                              borderColor: colors.border,
+                            },
                           ],
                     ]}
                   >
@@ -332,14 +366,8 @@ export default function RideChat() {
       </ScrollView>
 
       {ride && isParty ? (
-        <View
-          style={[
-            styles.footer,
-            {
-              borderTopColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, spacing.sm),
-            },
-          ]}
+        <Reanimated.View
+          style={[styles.footer, { borderTopColor: colors.border }, footerPad]}
         >
           {open ? (
             <>
@@ -425,17 +453,20 @@ export default function RideChat() {
                 color={colors.textMuted}
               />
               <AppText variant="smallStrong" color="textMuted">
-                {["pending", "accepted", "processing_payment", "confirmed"].includes(
-                  ride.status,
-                )
+                {[
+                  "pending",
+                  "accepted",
+                  "processing_payment",
+                  "confirmed",
+                ].includes(ride.status)
                   ? "Chat opens when the driver starts the trip."
                   : "This chat has ended."}
               </AppText>
             </View>
           )}
-        </View>
+        </Reanimated.View>
       ) : null}
-    </KeyboardAvoidingView>
+    </Reanimated.View>
   );
 }
 
