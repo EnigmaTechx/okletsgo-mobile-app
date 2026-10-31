@@ -1,6 +1,7 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { AssignDriverSheet } from "../../../components/drive/AssignDriverSheet";
 import {
   AdminScreen,
   EmptyBox,
@@ -19,12 +20,15 @@ import {
   whenLabel,
 } from "../../../components/admin/AdminUi";
 import { AppText } from "../../../components/ui/AppText";
+import { useToast } from "../../../components/ui/Toast";
+import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import {
   fetchRide,
   rideCost,
   rideKm,
 } from "../../../services/adminStatsService";
+import { callableMessage, reassignRide } from "../../../services/dispatch";
 import { rideEarned } from "../../../services/driverStatsService";
 import { discountLabel } from "../../../utils/promoLabels";
 import { spacing } from "../../../theme/tokens";
@@ -36,8 +40,11 @@ import { spacing } from "../../../theme/tokens";
  */
 export default function AdminRideDetail() {
   const router = useRouter();
+  const toast = useToast();
   const { colors } = useTheme();
+  const { currentUser } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [reassignOpen, setReassignOpen] = useState(false);
   const load = useCallback(() => fetchRide(id ?? ""), [id]);
   const {
     data: r,
@@ -59,6 +66,31 @@ export default function AdminRideDetail() {
   const payout = r ? rideEarned(r) : 0;
   const bookedKm = Number(r?.distance) || 0;
   const actualKm = r?.actualDistanceKm;
+  // The dispatcher (viewing as admin) can move an accepted ride to another driver.
+  const canReassign =
+    !!r &&
+    r.status === "accepted" &&
+    !!r.dispatcherId &&
+    r.dispatcherId === currentUser?.uid;
+  const history = r?.assignmentHistory ?? [];
+  const historyLine = (h: (typeof history)[number]): string => {
+    switch (h.type) {
+      case "returned":
+        return `${h.fromDriverFirstName || "Driver"} sent it back to ${h.toDriverFirstName || "the dispatcher"}`;
+      case "reassigned":
+        return `Reassigned from ${h.fromDriverFirstName || "a driver"} to ${h.toDriverFirstName || "a driver"}`;
+      default:
+        return h.by === "auto"
+          ? `Auto-assigned to ${h.toDriverFirstName || "a driver"}`
+          : `Assigned to ${h.toDriverFirstName || "a driver"}`;
+    }
+  };
+  const openChat = () =>
+    r &&
+    router.push({
+      pathname: "/(common)/chat/[id]",
+      params: { id: r.id as string },
+    });
 
   return (
     <AdminScreen refreshing={refreshing} onRefresh={onRefresh}>
@@ -216,6 +248,75 @@ export default function AdminRideDetail() {
             </View>
           ) : null}
 
+          {r.dispatcherId || history.length > 0 ? (
+            <View>
+              <SectionHead
+                title="Dispatch"
+                action={
+                  canReassign
+                    ? {
+                        label: "Reassign",
+                        onPress: () => setReassignOpen(true),
+                      }
+                    : undefined
+                }
+              />
+              <Group>
+                {r.dispatcherId ? (
+                  <KvRow
+                    label="Booked through"
+                    value={r.dispatcherFirstName || "the dispatcher"}
+                  />
+                ) : null}
+                {r.assignedBy && r.status !== "completed" ? (
+                  <KvRow
+                    label="Assigned by"
+                    value={
+                      r.assignedBy === "auto"
+                        ? "Auto (no response)"
+                        : r.assignedByFirstName || "the dispatcher"
+                    }
+                    muted
+                  />
+                ) : null}
+                {history.map((h, i) => (
+                  <LinkRow
+                    key={i}
+                    title={historyLine(h)}
+                    sub={`${whenLabel(h.at)}${h.reason ? ` · ${h.reason}` : ""}${h.note ? ` · “${h.note}”` : ""}`}
+                  />
+                ))}
+              </Group>
+            </View>
+          ) : null}
+
+          {r.chatLastAt ? (
+            <View>
+              <SectionHead title="Messages" />
+              <Group>
+                <LinkRow
+                  icon="chatbubble-ellipses-outline"
+                  title="Open the chat"
+                  sub={`Last message ${whenLabel(r.chatLastAt)} · read-only`}
+                  onPress={openChat}
+                />
+                {r.chatFlagCount ? (
+                  <KvRow
+                    label="Contact details hidden"
+                    value={String(r.chatFlagCount)}
+                    muted
+                  />
+                ) : null}
+                {r.chatPaymentFlagCount ? (
+                  <KvRow
+                    label="Mentions paying outside the app"
+                    value={String(r.chatPaymentFlagCount)}
+                  />
+                ) : null}
+              </Group>
+            </View>
+          ) : null}
+
           {(r.forwardHistory ?? []).length > 0 ? (
             <View>
               <SectionHead title="Hand-offs" />
@@ -276,6 +377,31 @@ export default function AdminRideDetail() {
               ) : null}
             </Group>
           </View>
+
+          {canReassign ? (
+            <AssignDriverSheet
+              visible={reassignOpen}
+              mode="reassign"
+              ride={r}
+              onClose={() => setReassignOpen(false)}
+              onAssign={async (driverId, note) => {
+                try {
+                  const name = await reassignRide(
+                    r.id as string,
+                    driverId,
+                    note,
+                  );
+                  setReassignOpen(false);
+                  toast(`Reassigned to ${name}`, { type: "success" });
+                  reload();
+                } catch (e) {
+                  throw new Error(
+                    callableMessage(e, "Couldn't reassign the ride."),
+                  );
+                }
+              }}
+            />
+          ) : null}
         </>
       )}
     </AdminScreen>

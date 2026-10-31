@@ -31,7 +31,7 @@ import {
   type BookingPromo,
 } from "../../../services/bookingService";
 import { validateCouponRemote } from "../../../services/couponService";
-import { isDriverOnline } from "../../../services/rideService";
+import { getPublicProfile } from "../../../services/publicProfiles";
 import { formatDateTime } from "../../../utils/address";
 import { formatKm } from "../../../utils/geo";
 import { calculateFare, SERVICE_FEE } from "../../../utils/fareCalculator";
@@ -78,8 +78,15 @@ export default function BookConfirm() {
   const [booking, setBooking] = useState(false);
   const [booked, setBooked] = useState(false);
 
-  const { pickup, destination, distanceKm, fare, scheduledForIso, driver } =
-    draft;
+  const {
+    pickup,
+    destination,
+    distanceKm,
+    fare,
+    scheduledForIso,
+    driver,
+    viaDispatch,
+  } = draft;
   const complete =
     !!pickup &&
     !!destination &&
@@ -166,7 +173,10 @@ export default function BookConfirm() {
   const confirm = async () => {
     setBooking(true);
     try {
-      if (!(await isDriverOnline(driver.uid))) {
+      // The dispatcher can be booked while offline; anyone else must still
+      // be online.
+      const current = await getPublicProfile(driver.uid);
+      if (!current || (!viaDispatch && current.isOnline !== true)) {
         toast(`${driver.firstName} is no longer available.`, { type: "error" });
         router.replace("/(ride)/book/driver");
         return;
@@ -180,7 +190,9 @@ export default function BookConfirm() {
         fare,
         serviceFee: SERVICE_FEE,
         scheduledForIso,
-        autoForward,
+        // Through the dispatcher, a decline ends or reassigns the ride on his
+        // side; there is no next driver to forward to.
+        autoForward: viaDispatch ? false : autoForward,
         passengerName,
         passengerPhone:
           passengerPhone.replace(/\D/g, "").length === 10
@@ -423,22 +435,24 @@ export default function BookConfirm() {
         </View>
       </View>
 
-      <View style={[styles.card, card, styles.rowBetween]}>
-        <View style={styles.flex}>
-          <AppText variant="bodyStrong">
-            If {driver.firstName || "this driver"} can&apos;t take it
-          </AppText>
-          <AppText variant="small" color="textMuted">
-            Offer my ride to the next available driver
-          </AppText>
+      {viaDispatch ? null : (
+        <View style={[styles.card, card, styles.rowBetween]}>
+          <View style={styles.flex}>
+            <AppText variant="bodyStrong">
+              If {driver.firstName || "this driver"} can&apos;t take it
+            </AppText>
+            <AppText variant="small" color="textMuted">
+              Offer my ride to the next available driver
+            </AppText>
+          </View>
+          <Switch
+            value={autoForward}
+            onValueChange={setAutoForward}
+            trackColor={{ false: colors.border, true: colors.success }}
+            thumbColor={colors.background}
+          />
         </View>
-        <Switch
-          value={autoForward}
-          onValueChange={setAutoForward}
-          trackColor={{ false: colors.border, true: colors.success }}
-          thumbColor={colors.background}
-        />
-      </View>
+      )}
 
       {isVisible("book_for_others") ? (
         <View style={[styles.card, card, styles.passenger]}>

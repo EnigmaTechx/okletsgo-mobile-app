@@ -48,6 +48,7 @@ export default function AdminLayout() {
       <Stack.Screen name="rides/index" options={{ title: "Rides summary" }} />
       <Stack.Screen name="rides/all" options={{ title: "All rides" }} />
       <Stack.Screen name="ride/[id]" options={{ title: "Ride" }} />
+      <Stack.Screen name="dispatch" options={{ title: "Dispatch" }} />
     </Stack>
   );
 }

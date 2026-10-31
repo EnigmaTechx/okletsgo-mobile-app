@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   ActiveTripCard,
   DriverTripGroups,
+  NeedsResponse,
   NextPickupStrip,
 } from "../../components/drive/DriverTripCards";
 import { PromoPopup } from "../../components/promo/PromoPopup";
@@ -23,7 +24,7 @@ import {
   setDriverOnline,
   subscribeDriverOpenRides,
 } from "../../services/driverService";
-import { LIVE_STATUSES } from "../../services/rideService";
+import { dispatchChip, splitDriverHome } from "../../utils/driverHome";
 import { formatDriverRating } from "../../utils/rating";
 import { radius, spacing } from "../../theme/tokens";
 
@@ -32,8 +33,9 @@ const fmtKm = (km: number) =>
 
 /**
  * The driver's home: online toggle, the numbers that matter, the trip in
- * progress, the next pickup, upcoming trips and new requests. Pending
- * drivers see the review notice instead.
+ * progress, today's and tomorrow's requests pinned on top (shown offline
+ * too: they were booked with this driver), the next pickup, then every
+ * coming ride by day. Pending drivers see the review notice instead.
  */
 export default function DriverHome() {
   const router = useRouter();
@@ -44,19 +46,25 @@ export default function DriverHome() {
   const uid = currentUser?.uid;
   const [rides, setRides] = useState<RideRequest[] | null>(null);
   const [toggling, setToggling] = useState(false);
+  // Re-split every 30 s so "today / tomorrow" and the chips stay right.
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     if (!uid) return;
     return subscribeDriverOpenRides(uid, setRides, () => setRides([]));
   }, [uid]);
 
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
   if (!userProfile || rides === null) return <LoadingScreen />;
 
   const online = !!userProfile.isOnline;
   const pendingApproval = userProfile.isApproved !== true;
-  const active = rides.filter((r) => LIVE_STATUSES.includes(r.status));
-  const upcoming = rides.filter((r) => r.status === "accepted");
-  const requests = rides.filter((r) => r.status === "pending");
+  const home = splitDriverHome(rides, now);
+  const active = home.live;
   const showEarnings = isVisible("driver_earnings");
   const openRide = (id: string) =>
     router.push({ pathname: "/(drive)/ride/[id]", params: { id } });
@@ -198,34 +206,41 @@ export default function DriverHome() {
                 <ActiveTripCard ride={r} onOpen={openRide} />
               </View>
             ))}
-            {active.length === 0 && upcoming.length > 0 ? (
+            <NeedsResponse
+              rides={home.needsResponse}
+              todayCount={home.todayRequests}
+              online={online}
+              uid={uid}
+              now={now}
+              onOpen={openRide}
+            />
+            {active.length === 0 && home.nextPickup ? (
               <View style={styles.block}>
-                <NextPickupStrip ride={upcoming[0]} onOpen={openRide} />
+                <NextPickupStrip
+                  ride={home.nextPickup}
+                  now={now}
+                  onOpen={openRide}
+                />
               </View>
             ) : null}
             <DriverTripGroups
               theme="upcoming"
-              title="Upcoming trips"
-              rides={upcoming}
+              title="Coming up"
+              rides={home.comingUp}
+              now={now}
+              uid={uid}
+              chipFor={(r) => dispatchChip(r, uid, now.getTime())}
               onOpen={openRide}
             />
-            {online ? (
-              <DriverTripGroups
-                theme="requests"
-                title="New requests"
-                rides={requests}
-                onOpen={openRide}
-              />
-            ) : null}
 
-            {online &&
-            requests.length === 0 &&
-            upcoming.length === 0 &&
-            active.length === 0 ? (
-              <Empty text="You're online. New requests pop up here and as a push notification." />
-            ) : null}
-            {!online && upcoming.length === 0 && active.length === 0 ? (
-              <Empty text="Go online to receive new requests." />
+            {rides.length === 0 ? (
+              <Empty
+                text={
+                  online
+                    ? "You're online. New requests pop up here and as a push notification."
+                    : "Go online to receive new requests."
+                }
+              />
             ) : null}
           </>
         )}

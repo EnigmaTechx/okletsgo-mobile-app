@@ -18,6 +18,7 @@ import { LoadingScreen } from "../../../components/ui/LoadingScreen";
 import { ProcessingOverlay } from "../../../components/ui/ProcessingOverlay";
 import { showAlert } from "../../../components/ui/alerts";
 import { useToast } from "../../../components/ui/Toast";
+import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useBgLocationConsent } from "../../../hooks/useBgLocationConsent";
 import { useDrivingRoute } from "../../../hooks/useDrivingRoute";
@@ -35,6 +36,7 @@ import {
   writeDriverLocation,
   type CompleteTripMeta,
 } from "../../../services/driverService";
+import { assignRide, callableMessage } from "../../../services/dispatch";
 import {
   LIVE_STATUSES,
   respondToRide,
@@ -56,6 +58,8 @@ export default function DriverRide() {
   const router = useRouter();
   const toast = useToast();
   const { colors } = useTheme();
+  const { currentUser } = useAuth();
+  const uid = currentUser?.uid;
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const map = useRef<RideMapHandle>(null);
@@ -91,6 +95,12 @@ export default function DriverRide() {
         goHome();
         return;
       }
+      // Dispatch moved it to another driver (an assignment, a reassignment
+      // or the no-response fallback): it is no longer this driver's.
+      if (uid && data.driverId !== uid) {
+        goHome();
+        return;
+      }
       if (data.status === "completed") {
         goHistory(data.id as string);
         return;
@@ -98,7 +108,7 @@ export default function DriverRide() {
       setRide(data);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, uid]);
 
   useEffect(() => {
     if (geoError)
@@ -168,9 +178,11 @@ export default function DriverRide() {
       const result = await respondToRide(ride.id, "decline", reason);
       goHome();
       toast(
-        result && result.forwarded
-          ? `Request passed to ${result.driverFirstName || "another driver"}`
-          : "Request declined",
+        result?.returned
+          ? `Sent back to ${result.driverFirstName || "the dispatcher"}`
+          : result?.forwarded
+            ? `Request passed to ${result.driverFirstName || "another driver"}`
+            : "Request declined",
         { type: "success" },
       );
     } catch (err) {
@@ -181,6 +193,19 @@ export default function DriverRide() {
       );
     } finally {
       setBusy(null);
+    }
+  };
+
+  // Dispatcher: hand the request to another driver. Throws with a readable
+  // message so the Assign sheet can show it.
+  const assign = async (driverId: string, note: string) => {
+    if (!ride?.id) return;
+    try {
+      const name = await assignRide(ride.id, driverId, note);
+      goHome();
+      toast(`Assigned to ${name}`, { type: "success" });
+    } catch (err) {
+      throw new Error(callableMessage(err, "Couldn't assign the ride."));
     }
   };
 
@@ -294,6 +319,7 @@ export default function DriverRide() {
               accepting={accepting}
               onAccept={() => void accept()}
               onDecline={(r) => void decline(r)}
+              onAssign={assign}
               onHeaderLayout={setHeaderHeight}
             />
           )
@@ -307,6 +333,7 @@ export default function DriverRide() {
             onStartTrip={() => startTrip(ride.id as string)}
             onComplete={complete}
             onCancelled={goHome}
+            onReassigned={goHome}
             onHeaderLayout={setHeaderHeight}
           />
         )}

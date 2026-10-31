@@ -17,6 +17,19 @@ export interface DeclineRecord {
   timestamp: string;
 }
 
+export interface AssignmentRecord {
+  type: "assigned" | "returned" | "reassigned";
+  toDriverId?: string;
+  toDriverFirstName?: string;
+  fromDriverId?: string;
+  fromDriverFirstName?: string;
+  /** The dispatcher's uid, or "auto" for the no-response fallback. */
+  by?: string;
+  note?: string;
+  reason?: string;
+  at: string;
+}
+
 export interface LocationPoint {
   address: string;
   lat?: number;
@@ -134,6 +147,30 @@ export interface RideRequest {
     at: string;
   }[];
   forwardedAt?: string;
+
+  // --- RIDE CHAT (written by the sendRideMessage function) ---
+  /** Unread chat messages per recipient uid; the app zeroes its own. */
+  chatUnread?: Record<string, number>;
+  chatLastAt?: string;
+  /** Messages in which a phone number or email was masked. */
+  chatFlagCount?: number;
+  /** Messages that talked about paying outside the app (flagged, not hidden). */
+  chatPaymentFlagCount?: number;
+
+  // --- DISPATCH (riders book through the dispatcher, who assigns rides) ---
+  // Stamped by the notifyNewRideRequest function when the ride was booked
+  // with the dispatcher (config/dispatch). See functions "3C. DISPATCH".
+  dispatcherId?: string;
+  dispatcherFirstName?: string;
+  /** When the dispatcher's no-response fallback runs (ISO); absent once handled. */
+  dispatchDeadline?: string;
+  dispatchFallback?: "assign_next" | "keep_waiting" | "remind";
+  /** Set while the ride sits with a driver the dispatcher assigned ("auto" = fallback). */
+  assignedBy?: string;
+  assignedByFirstName?: string;
+  assignedAt?: string;
+  assignmentNote?: string;
+  assignmentHistory?: AssignmentRecord[];
 
   // --- SCHEDULED-RIDE TIME EDIT (client changes pickup time before start) ---
   // A change to `scheduledTime` the client requested that still needs the

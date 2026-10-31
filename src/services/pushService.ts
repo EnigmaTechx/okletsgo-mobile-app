@@ -151,6 +151,13 @@ const localId = (r: Notifications.NotificationResponse): string =>
 
 let coldStartChecked = false;
 
+// The ride whose chat is on screen: its "chat" pushes are not re-shown as
+// banners (the message is already in view).
+let openChatRideId: string | null = null;
+export const setOpenChatRide = (rideId: string | null): void => {
+  openChatRideId = rideId;
+};
+
 /**
  * Wire up the three app states. Returns an unsubscribe.
  *  - foreground: the push arrives as data; re-show it as a local banner
@@ -164,6 +171,7 @@ export function listenForPushes(onOpen: (data: PushData) => void): () => void {
     onMessage(messaging, async (message) => {
       const data = dataOf(message);
       if (data.type === "trip_reminder") return;
+      if (data.type === "chat" && data.rideId === openChatRideId) return;
       await Notifications.scheduleNotificationAsync({
         content: {
           title: message.notification?.title ?? "OK Let's Go",
