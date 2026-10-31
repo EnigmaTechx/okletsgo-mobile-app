@@ -13,17 +13,17 @@ import {
   MID_TRIP_CANCELLATION_FEE,
 } from "../../utils/fareCalculator";
 import { FEATURES } from "../../config/features";
-import { pointOf } from "../../utils/geo";
+import { formatKm, pointOf } from "../../utils/geo";
 import { cad } from "../../utils/money";
 import { formatDriverRating } from "../../utils/rating";
 import { radius, spacing } from "../../theme/tokens";
 import { AppText } from "../ui/AppText";
 import { Avatar } from "../ui/Avatar";
-import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
 import { CancelRideSheet } from "./CancelRideSheet";
 import { EditRideTimeSheet } from "./EditRideTimeSheet";
 import { RouteTimeline } from "./RouteTimeline";
+import { SheetButton, SheetCard, SheetNote, SheetNotice } from "./SheetParts";
 import { discountLabel } from "../../utils/promoLabels";
 
 // SAFETY: mirrors the driver-side gate on the client's photo. The driver's
@@ -143,6 +143,14 @@ export function ClientRideStatusPanel({
     : FEATURES.STRIPE_PAYMENTS && ride.status !== "pending"
       ? ` · ${cad(earlyCancellationFee(total))} fee`
       : "";
+  const when = ride.scheduledTime || ride.createdAt;
+  const whenDate = new Date(when ?? "");
+  const whenLabel = Number.isNaN(whenDate.getTime())
+    ? null
+    : `${whenDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · ${formatTime(when)}`;
+  const tripKm = Number(ride.distance);
+  const forwardsOnDecline =
+    ride.status === "pending" && ride.autoForward !== false;
 
   return (
     <View style={styles.root}>
@@ -237,48 +245,49 @@ export function ClientRideStatusPanel({
       </View>
 
       {pendingChange ? (
-        <View
-          style={[styles.notice, { backgroundColor: colors.surfaceRaised }]}
-        >
-          <Ionicons name="hourglass-outline" size={18} color={colors.primary} />
-          <AppText variant="small" color="primary" style={styles.noticeText}>
-            Waiting for your driver to approve the new pickup time (
-            {formatDayAndTime(pendingChange.requestedTime)}).
-          </AppText>
-        </View>
+        <SheetNotice icon="hourglass-outline">
+          Waiting for your driver to approve the new pickup time (
+          {formatDayAndTime(pendingChange.requestedTime)}).
+        </SheetNotice>
       ) : null}
 
-      {/* Route */}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
+      {/* Route, with the pickup date/time (and Edit time) under the pickup */}
+      <SheetCard style={styles.routeCard}>
         <RouteTimeline
+          size="md"
           pickup={ride.pickup.address}
           dropoff={ride.destination.address}
-          compact
+          pickupSuffix={whenLabel}
+          pickupAfter={
+            canEditTime ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Change pickup time"
+                onPress={() => setEditOpen(true)}
+                style={styles.editTime}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={14}
+                  color={colors.primary}
+                />
+                <AppText variant="smallStrong" color="primary">
+                  Edit time
+                </AppText>
+              </Pressable>
+            ) : undefined
+          }
+          dropoffSuffix={
+            Number.isFinite(tripKm) && tripKm > 0 ? formatKm(tripKm) : null
+          }
         />
-      </View>
+      </SheetCard>
 
-      {/* Time and pay */}
-      <View style={styles.payRow}>
-        <View>
-          <AppText variant="eyebrow" color="textMuted">
-            PICKUP
-          </AppText>
-          <AppText variant="bodyStrong">
-            {formatDayAndTime(ride.scheduledTime || ride.createdAt) ||
-              formatTime(ride.createdAt)}
-          </AppText>
-        </View>
-        <View style={styles.payAmount}>
-          <AppText variant="eyebrow" color="textMuted">
-            YOU PAY
-          </AppText>
-          <AppText variant="heading" color="success">
-            {cad(total)}
+      {/* Total */}
+      <SheetCard style={styles.totalCard}>
+        <View style={styles.totalText}>
+          <AppText variant="smallStrong" color="textSecondary">
+            Total
           </AppText>
           {ride.couponCode || (ride.discountAmount ?? 0) > 0 ? (
             <AppText variant="small" color="accent">
@@ -286,25 +295,28 @@ export function ClientRideStatusPanel({
             </AppText>
           ) : null}
         </View>
-      </View>
+        <AppText variant="heading" color="primary">
+          {cad(total)}
+        </AppText>
+      </SheetCard>
 
-      {/* Actions */}
-      <View style={styles.actions}>
-        {canEditTime ? (
-          <Button
-            title="Change time"
-            variant="secondary"
-            onPress={() => setEditOpen(true)}
-            style={styles.half}
-          />
-        ) : null}
-        <Button
-          title={inProgress ? `End trip${feeNote}` : `Cancel${feeNote}`}
-          variant="danger"
-          onPress={() => setCancelOpen(true)}
-          style={styles.half}
-        />
-      </View>
+      {forwardsOnDecline ? (
+        <SheetNote icon="swap-horizontal-outline">
+          If {ride.driverFirstName || "your driver"} can&apos;t take it, your
+          request is offered to the next available driver.
+        </SheetNote>
+      ) : null}
+
+      {/* Cancel ride / End trip early */}
+      <SheetButton
+        title={
+          inProgress ? `End trip early${feeNote}` : `Cancel ride${feeNote}`
+        }
+        kind="outline-primary"
+        size="sm"
+        onPress={() => setCancelOpen(true)}
+        style={styles.cancel}
+      />
 
       <CancelRideSheet
         visible={cancelOpen}
@@ -374,30 +386,23 @@ const styles = StyleSheet.create({
   rating: { flexDirection: "row", alignItems: "center", gap: 3 },
   plate: { letterSpacing: 1 },
   carPhoto: { width: 72, height: 48, borderRadius: radius.sm },
-  notice: {
+  routeCard: { marginTop: spacing.sm },
+  editTime: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: "rgba(241, 75, 28, 0.10)",
   },
-  noticeText: { flex: 1 },
-  card: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  payRow: {
+  totalCard: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "flex-end",
-    marginTop: spacing.xs,
   },
-  payAmount: { alignItems: "flex-end" },
-  actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xl },
-  half: { flex: 1 },
+  totalText: { gap: 2 },
+  cancel: { marginTop: spacing.md, minHeight: 50 },
   preview: {
     alignItems: "center",
     gap: spacing.sm,

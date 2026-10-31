@@ -1,7 +1,4 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../contexts/ThemeContext";
 import { FEATURES } from "../../config/features";
 import type { RideRequest } from "../../interfaces/ride";
 import {
@@ -10,10 +7,7 @@ import {
   earlyCancellationFee,
 } from "../../utils/fareCalculator";
 import { cad } from "../../utils/money";
-import { radius, spacing } from "../../theme/tokens";
-import { AppText } from "../ui/AppText";
-import { Button } from "../ui/Button";
-import { Sheet } from "../ui/Sheet";
+import { ConfirmSheet } from "../ui/ConfirmSheet";
 
 const PRE_TRIP_REASONS = [
   "Driver is taking too long",
@@ -35,9 +29,8 @@ interface Props {
   onConfirm: (reason: string) => void;
 }
 
-/** "Cancel ride" / "End trip early": the warning, a reason, two buttons. */
+/** "Cancel Ride" / "End Trip Early?": the warning, a reason, two buttons. */
 export function CancelRideSheet({ visible, ride, onClose, onConfirm }: Props) {
-  const { colors } = useTheme();
   const inProgress = ride.status === "in_progress";
   const reasons = inProgress ? MID_TRIP_REASONS : PRE_TRIP_REASONS;
   const [reason, setReason] = useState(reasons[0]);
@@ -53,83 +46,19 @@ export function CancelRideSheet({ visible, ride, onClose, onConfirm }: Props) {
         : "Are you sure you want to cancel? Please select a reason below.";
 
   return (
-    <Sheet visible={visible} onClose={onClose}>
-      <View style={styles.header}>
-        <Ionicons
-          name={inProgress ? "warning-outline" : "close-circle-outline"}
-          size={34}
-          color={colors.primary}
-        />
-        <AppText variant="title">
-          {inProgress ? "End trip early?" : "Cancel ride"}
-        </AppText>
-      </View>
-      <AppText variant="body" color="textSecondary">
-        {message}
-      </AppText>
-      <View style={styles.options}>
-        {reasons.map((opt) => {
-          const selected = opt === reason;
-          return (
-            <Pressable
-              key={opt}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              onPress={() => setReason(opt)}
-              style={[
-                styles.option,
-                {
-                  backgroundColor: selected
-                    ? colors.surfaceRaised
-                    : colors.surface,
-                  borderColor: selected ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.radio,
-                  {
-                    borderColor: selected ? colors.primary : colors.textMuted,
-                    backgroundColor: selected ? colors.primary : "transparent",
-                  },
-                ]}
-              />
-              <AppText variant="bodyStrong">{opt}</AppText>
-            </Pressable>
-          );
-        })}
-      </View>
-      <View style={styles.actions}>
-        <Button
-          title={inProgress ? "Continue trip" : "Keep ride"}
-          variant="secondary"
-          onPress={onClose}
-          style={styles.half}
-        />
-        <Button
-          title={inProgress ? "End trip" : "Cancel ride"}
-          onPress={() => onConfirm(reason)}
-          style={styles.half}
-        />
-      </View>
-    </Sheet>
+    <ConfirmSheet
+      visible={visible}
+      tone="primary"
+      icon={inProgress ? "warning-outline" : "close-circle-outline"}
+      title={inProgress ? "End Trip Early?" : "Cancel Ride"}
+      message={message}
+      options={reasons}
+      selected={reason}
+      onSelect={setReason}
+      cancelText={inProgress ? "Continue Trip" : "Keep Ride"}
+      onCancel={onClose}
+      confirmText={inProgress ? "End Trip" : "Cancel Ride"}
+      onConfirm={() => onConfirm(reason)}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  header: { alignItems: "center", gap: spacing.sm },
-  options: { gap: spacing.sm, marginTop: spacing.sm },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2 },
-  actions: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
-  half: { flex: 1 },
-});

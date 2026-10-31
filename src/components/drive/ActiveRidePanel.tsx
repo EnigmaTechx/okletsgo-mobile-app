@@ -10,7 +10,7 @@ import {
   type CompleteTripMeta,
 } from "../../services/driverService";
 import { cancelRide, fetchUserProfile } from "../../services/rideService";
-import { formatDayAndTime } from "../../utils/address";
+import { formatTime } from "../../utils/address";
 import { driverPayout } from "../../utils/fareCalculator";
 import {
   formatKm,
@@ -19,15 +19,21 @@ import {
   pointOf,
   type LatLng,
 } from "../../utils/geo";
-import { cad } from "../../utils/money";
 import { radius, spacing } from "../../theme/tokens";
 import { AppText } from "../ui/AppText";
-import { Button } from "../ui/Button";
-import { ReasonSheet } from "../ui/ReasonSheet";
+import { ConfirmSheet } from "../ui/ConfirmSheet";
 import { Sheet } from "../ui/Sheet";
-import { showAlert } from "../ui/alerts";
+import type { PillTone } from "../ui/SheetPill";
 import { useToast } from "../ui/Toast";
 import { RouteTimeline } from "../rides/RouteTimeline";
+import {
+  PersonRow,
+  PriceCluster,
+  SheetButton,
+  SheetCard,
+  SheetHead,
+  Strong,
+} from "../rides/SheetParts";
 import { riderName } from "./DriverTripCards";
 import { SwipeButton } from "./SwipeButton";
 import { TimeChangeReviewCard } from "./TimeChangeReviewCard";
@@ -66,15 +72,14 @@ const WAIT_SECONDS = 300;
 const GRACE_MS = 5 * 60 * 1000;
 const UNLOCK_BEFORE_MIN = 45;
 
-const STATUS_LABEL: Record<string, string> = {
-  accepted: "Accepted",
-  heading_to_pickup: "Heading to pickup",
-  arrived: "Arrived at pickup",
-  in_progress: "Trip in progress",
+/** Pill tone and label per status, as the Ionic sheet header. */
+const STATUS_THEME: Record<string, { tone: PillTone; label: string }> = {
+  accepted: { tone: "blue", label: "Accepted" },
+  heading_to_pickup: { tone: "blue", label: "Heading to pickup" },
+  arrived: { tone: "gold", label: "Arrived at pickup" },
+  in_progress: { tone: "green", label: "Trip in progress" },
+  completed: { tone: "green", label: "Completed" },
 };
-
-/** Header height for the collapsed sheet: status + rider row. */
-export const ACTIVE_PANEL_HEADER = 150;
 
 interface Props {
   ride: RideRequest;
@@ -85,16 +90,27 @@ interface Props {
   onStartTrip: () => Promise<void>;
   onComplete: (meta?: CompleteTripMeta) => Promise<void>;
   onCancelled: () => void;
+  /** Height of the header block, for the collapsed sheet. */
+  onHeaderLayout?: (height: number) => void;
 }
 
 const fmtCountdown = (secs: number) =>
   `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 
+const shortDate = (iso?: string): string => {
+  const d = new Date(iso ?? "");
+  return Number.isNaN(d.getTime())
+    ? "ASAP"
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
 /**
- * The driver's trip panel: rider, payout, route with distances, Call and
- * GPS, the slide-to-confirm for the next step with its timers (45-minute
- * start lock, 5-minute wait, pickup-time grace), the early-end guard and
- * the cancel sheet. Mirrors ActiveRideControls in the Ionic app.
+ * The driver's trip sheet, laid out like the Ionic ActiveRideControls: the
+ * status pill with the pickup time (or "Started 7:05 PM") and the live
+ * distance under it, the rider and the payout, the route with its
+ * distance tags, Call and GPS, the slide-to-confirm for the next step with
+ * its timers (45-minute start lock, 5-minute wait, pickup-time grace), and
+ * the cancel action under it. Every confirmation is a ConfirmSheet.
  */
 export function ActiveRidePanel({
   ride,
@@ -105,6 +121,7 @@ export function ActiveRidePanel({
   onStartTrip,
   onComplete,
   onCancelled,
+  onHeaderLayout,
 }: Props) {
   const { colors } = useTheme();
   const { userProfile } = useAuth();
@@ -115,10 +132,13 @@ export function ActiveRidePanel({
   const [client, setClient] = useState<UserProfile | null>(null);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState(CANCEL_REASONS_PRE_TRIP[0]);
   const [earlyEndOpen, setEarlyEndOpen] = useState(false);
+  const [earlyEndReason, setEarlyEndReason] = useState(EARLY_END_REASONS[0]);
   const [earlyEndResolve, setEarlyEndResolve] = useState<
     ((r: { confirmed: boolean; reason?: string }) => void) | null
   >(null);
+  const [earlyNoticeOpen, setEarlyNoticeOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [occupied, setOccupied] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -174,6 +194,27 @@ export function ActiveRidePanel({
   const toDropoff = inProgress
     ? kmFromDriver(driverLocation, ride.destination)
     : null;
+  const liveTag = inProgress
+    ? toDropoff !== null
+      ? `${formatKm(toDropoff)} to drop-off`
+      : locating
+        ? "··· to drop-off"
+        : null
+    : toPickup !== null
+      ? `${formatKm(toPickup)} to pickup`
+      : locating
+        ? "··· to pickup"
+        : null;
+  const theme = STATUS_THEME[ride.status] ?? {
+    tone: "grey" as PillTone,
+    label: ride.status.replace(/_/g, " "),
+  };
+  const name = riderName(ride);
+  const when = ride.scheduledTime || ride.createdAt;
+  // No-show cancel unlocks 5 min after the scheduled pickup.
+  const noShowUnlockAt = Number.isNaN(scheduledMs)
+    ? ""
+    : formatTime(new Date(scheduledMs + GRACE_MS).toISOString());
 
   const openGps = () => {
     const target = inProgress ? ride.destination.address : ride.pickup.address;
@@ -205,16 +246,9 @@ export function ActiveRidePanel({
     step(async () => {
       await onArrived();
       toast("Passenger notified of your arrival.");
-      // Only worth explaining when the driver is early.
-      if (
-        !Number.isNaN(scheduledMs) &&
-        scheduledMs - Date.now() >= 5 * 60 * 1000
-      ) {
-        showAlert(
-          "You've arrived",
-          `The rider has been notified. Please wait at the pickup location.\n\nScheduled pickup: ${formatDayAndTime(ride.scheduledTime)}. The no-show cancellation option unlocks 5 minutes after that time, or after a 5-minute wait, whichever is later.`,
-        );
-      }
+      // Only worth explaining when the driver is early (5+ min before pickup).
+      if (!Number.isNaN(scheduledMs) && scheduledMs - Date.now() >= GRACE_MS)
+        setEarlyNoticeOpen(true);
     }, "Couldn't update the trip. Check your connection and try again.");
 
   const handleComplete = () =>
@@ -227,6 +261,7 @@ export function ActiveRidePanel({
           reason?: string;
         }>((resolve) => {
           setEarlyEndResolve(() => resolve);
+          setEarlyEndReason(EARLY_END_REASONS[0]);
           setEarlyEndOpen(true);
         });
         if (!result.confirmed) throw new Error("Not at drop-off yet.");
@@ -259,21 +294,34 @@ export function ActiveRidePanel({
     }
   };
 
+  const openCancel = () => {
+    setCancelReason(
+      (inProgress ? CANCEL_REASONS_IN_PROGRESS : CANCEL_REASONS_PRE_TRIP)[0],
+    );
+    setCancelOpen(true);
+  };
+
   const primaryAction = () => {
     switch (ride.status) {
       case "accepted":
         if (occupied && !isTestDriver) {
           return (
             <View
-              style={[styles.notice, { backgroundColor: colors.surfaceRaised }]}
+              style={[
+                styles.occupied,
+                {
+                  backgroundColor: colors.dangerSoft,
+                  borderColor: colors.danger,
+                },
+              ]}
             >
-              <Ionicons name="car-sport" size={22} color={colors.primary} />
-              <View style={styles.flex}>
-                <AppText variant="bodyStrong">Active trip in progress</AppText>
-                <AppText variant="small" color="textSecondary">
-                  Complete your current ride before starting this one.
-                </AppText>
-              </View>
+              <Ionicons name="car-sport" size={24} color={colors.danger} />
+              <AppText variant="smallStrong" color="danger" align="center">
+                Active Trip in Progress
+              </AppText>
+              <AppText variant="small" color="textSecondary" align="center">
+                You must complete your current ride before starting this one.
+              </AppText>
             </View>
           );
         }
@@ -282,8 +330,8 @@ export function ActiveRidePanel({
             key="accepted"
             text={
               minutesToUnlock > 0
-                ? `Too early (wait ${minutesToUnlock} min)`
-                : "Head to pickup"
+                ? `Too early (Wait ${minutesToUnlock}m)`
+                : "Head to Pickup"
             }
             icon="arrow-forward"
             color={colors.secondary}
@@ -300,7 +348,7 @@ export function ActiveRidePanel({
         return (
           <SwipeButton
             key="heading"
-            text="Arrived at pickup"
+            text="Arrived at Pickup"
             icon="location-sharp"
             color={colors.primary}
             onConfirm={handleArrived}
@@ -319,33 +367,37 @@ export function ActiveRidePanel({
                 },
               ]}
             >
-              <Ionicons
-                name="time-outline"
-                size={22}
-                color={canCancelNoShow ? colors.danger : colors.primary}
-              />
-              <AppText
-                variant="bodyStrong"
-                color={canCancelNoShow ? "danger" : "text"}
-              >
-                {waitLeft > 0
-                  ? `Wait for rider: ${fmtCountdown(waitLeft)}`
-                  : canCancelNoShow
-                    ? "Rider is late. You may cancel."
-                    : "Waiting period elapsed."}
-              </AppText>
+              <View style={styles.waitRow}>
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={canCancelNoShow ? colors.danger : colors.primary}
+                />
+                <AppText
+                  variant="bodyStrong"
+                  color={canCancelNoShow ? "danger" : "text"}
+                >
+                  {waitLeft > 0
+                    ? `Wait for client: ${fmtCountdown(waitLeft)}`
+                    : canCancelNoShow
+                      ? "Client is late. You may cancel."
+                      : "Wait time is up"}
+                </AppText>
+              </View>
               {waitLeft === 0 && graceLeft > 0 ? (
-                <AppText variant="small" color="primary" align="center">
-                  No-show cancellation unlocks 5 minutes after the scheduled
-                  pickup ({fmtCountdown(graceLeft)}).
+                <AppText variant="small" color="textSecondary" align="center">
+                  No-show cancel unlocks in{" "}
+                  <AppText variant="smallStrong" color="primary">
+                    {fmtCountdown(graceLeft)}
+                  </AppText>
                 </AppText>
               ) : null}
             </View>
             <SwipeButton
               key="arrived"
-              text="Start trip"
+              text="Start Trip"
               icon="play-circle"
-              color={colors.secondary}
+              color="#3880FF"
               onConfirm={() =>
                 step(async () => {
                   await onStartTrip();
@@ -353,21 +405,13 @@ export function ActiveRidePanel({
                 }, "Couldn't update the trip. Check your connection and try again.")
               }
             />
-            {canCancelNoShow ? (
-              <Button
-                title="Cancel · rider no-show"
-                variant="danger"
-                onPress={() => void handleCancel("Client no-show")}
-                loading={cancelling}
-              />
-            ) : null}
           </View>
         );
       case "in_progress":
         return (
           <SwipeButton
             key="in_progress"
-            text="Complete trip"
+            text="Complete Trip"
             icon="checkmark-circle"
             color={colors.success}
             onConfirm={handleComplete}
@@ -378,169 +422,217 @@ export function ActiveRidePanel({
     }
   };
 
+  // Under the swipe: cancel before the trip, end early during it, or the
+  // no-show cancel once the wait timer has run out.
+  const secondaryAction =
+    ride.status === "completed" ? null : ride.status === "arrived" &&
+      canCancelNoShow ? (
+      <SheetButton
+        title="Cancel · client no-show"
+        icon="warning-outline"
+        kind="outline-danger"
+        size="sm"
+        onPress={() => void handleCancel("Client no-show")}
+        loading={cancelling}
+        style={styles.secondary}
+      />
+    ) : (
+      <SheetButton
+        title={inProgress ? "End trip early" : "Cancel ride"}
+        icon={inProgress ? "stop-circle-outline" : "close-circle-outline"}
+        kind="outline-danger"
+        size="sm"
+        onPress={openCancel}
+        disabled={cancelling}
+        style={styles.secondary}
+      />
+    );
+
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
-        <View style={styles.statusRow}>
-          <View
-            style={[
-              styles.statusDot,
-              {
-                backgroundColor: inProgress ? colors.success : colors.secondary,
-              },
-            ]}
-          />
-          <AppText variant="eyebrow" color="textMuted">
-            {(
-              STATUS_LABEL[ride.status] ?? ride.status.replace(/_/g, " ")
-            ).toUpperCase()}
-          </AppText>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Ride options"
-            hitSlop={10}
-            disabled={cancelling}
-            onPress={() => setCancelOpen(true)}
-            style={styles.more}
-          >
-            <Ionicons
-              name="ellipsis-vertical"
-              size={22}
-              color={colors.textMuted}
-            />
-          </Pressable>
-        </View>
-        <View style={styles.riderRow}>
-          <Pressable
-            accessibilityRole="button"
-            disabled={!client?.photoUrl}
-            onPress={() => setPhotoOpen(true)}
-            style={[
-              styles.avatar,
-              {
-                backgroundColor: colors.surfaceRaised,
-                borderColor: colors.secondary,
-              },
-            ]}
-          >
-            {client?.photoUrl ? (
-              <Image
-                source={{ uri: client.photoUrl }}
-                style={styles.avatarImg}
-              />
+      <SheetHead
+        tone={theme.tone}
+        pill={theme.label}
+        onLayout={onHeaderLayout}
+        subline={
+          <>
+            {inProgress ? (
+              ride.tripStartedAt ? (
+                <>
+                  Started <Strong>{formatTime(ride.tripStartedAt)}</Strong>
+                </>
+              ) : (
+                "On the way to drop-off"
+              )
             ) : (
-              <Ionicons name="person" size={26} color={colors.textMuted} />
+              <>
+                {shortDate(when)}
+                {" · "}
+                <Strong>{formatTime(when)}</Strong>
+              </>
             )}
-          </Pressable>
-          <View style={styles.flex}>
-            <AppText variant="title" numberOfLines={1}>
-              {riderName(ride)}
-            </AppText>
-            <AppText variant="small" color="textMuted">
-              {formatDayAndTime(ride.scheduledTime || ride.createdAt)}
-            </AppText>
-          </View>
-          <View style={styles.payout}>
-            <AppText variant="heading" color="success">
-              {cad(payout)}
-            </AppText>
-            <AppText variant="eyebrow" color="textMuted">
-              EST. EARN
-            </AppText>
-          </View>
+            {liveTag ? ` · ${liveTag}` : ""}
+          </>
+        }
+      />
+
+      <View style={styles.body}>
+        {/* Rider-requested earlier pickup awaiting this driver's decision */}
+        <TimeChangeReviewCard ride={ride} />
+
+        <PersonRow
+          avatar={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                client?.photoUrl ? "View rider photo" : undefined
+              }
+              disabled={!client?.photoUrl}
+              onPress={() => setPhotoOpen(true)}
+              style={[
+                styles.avatar,
+                { backgroundColor: `rgba(93, 183, 233, 0.18)` },
+              ]}
+            >
+              {client?.photoUrl ? (
+                <Image
+                  source={{ uri: client.photoUrl }}
+                  style={styles.avatarImg}
+                />
+              ) : (
+                <AppText
+                  variant="smallStrong"
+                  style={{ color: colors.secondary }}
+                >
+                  {`${ride.clientFirstName?.charAt(0) ?? ""}${ride.clientLastName?.charAt(0) ?? ""}`.toUpperCase() ||
+                    "?"}
+                </AppText>
+              )}
+            </Pressable>
+          }
+          name={name}
+          right={
+            <PriceCluster
+              amount={`$${payout.toFixed(2)}`}
+              label="Est. Earn"
+              size="md"
+            />
+          }
+        />
+
+        <SheetCard>
+          <RouteTimeline
+            size="md"
+            pickup={ride.pickup.address}
+            dropoff={ride.destination.address}
+            pickupSuffix={
+              !inProgress
+                ? toPickup !== null
+                  ? `${formatKm(toPickup)} to pickup`
+                  : locating
+                    ? "··· to pickup"
+                    : null
+                : null
+            }
+            dropoffSuffix={
+              Number.isFinite(tripKm) && tripKm > 0
+                ? `${formatKm(tripKm)} trip`
+                : null
+            }
+          />
+        </SheetCard>
+
+        <View style={styles.tools}>
+          <SheetButton
+            title="Call"
+            icon="call"
+            kind="outline-primary"
+            onPress={call}
+            disabled={cancelling}
+            style={styles.tool}
+          />
+          <SheetButton
+            title="GPS"
+            icon="navigate-circle-outline"
+            kind="outline-secondary"
+            onPress={openGps}
+            disabled={cancelling}
+            style={styles.tool}
+          />
         </View>
       </View>
 
-      <TimeChangeReviewCard ride={ride} />
-
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <RouteTimeline
-          pickup={ride.pickup.address}
-          dropoff={ride.destination.address}
-          compact
-          pickupAside={
-            toPickup !== null ? (
-              <Tag text={`${formatKm(toPickup)} to pickup`} />
-            ) : !inProgress && locating ? (
-              <Tag text="··· to pickup" />
-            ) : undefined
-          }
-          dropoffAside={
-            <View style={styles.tags}>
-              {Number.isFinite(tripKm) && tripKm > 0 ? (
-                <Tag text={`${formatKm(tripKm)} trip`} muted />
-              ) : null}
-              {toDropoff !== null ? (
-                <Tag text={`${formatKm(toDropoff)} to drop-off`} />
-              ) : null}
-            </View>
-          }
-        />
+      <View style={[styles.foot, { borderTopColor: colors.border }]}>
+        {primaryAction()}
+        {secondaryAction}
       </View>
 
-      <View style={styles.tools}>
-        <Button
-          title="Call"
-          variant="secondary"
-          onPress={call}
-          disabled={cancelling}
-          style={styles.half}
-        />
-        <Button
-          title="GPS"
-          variant="secondary"
-          onPress={openGps}
-          disabled={cancelling}
-          style={styles.half}
-        />
-      </View>
+      {/* Arrival notice: only when the driver is early, so the pickup time is set. */}
+      <ConfirmSheet
+        visible={earlyNoticeOpen}
+        tone="primary"
+        icon="time-outline"
+        title="You're early"
+        message={
+          <AppText variant="body" color="textSecondary" align="center">
+            {name || "The rider"} has been notified. No-show cancel unlocks at{" "}
+            <AppText variant="bodyStrong">{noShowUnlockAt}</AppText>, 5 min
+            after pickup.
+          </AppText>
+        }
+        confirmText="Got it"
+        onConfirm={() => setEarlyNoticeOpen(false)}
+        onDismiss={() => setEarlyNoticeOpen(false)}
+      />
 
-      <View style={styles.actionZone}>{primaryAction()}</View>
-
-      <ReasonSheet
+      {/* Cancel trip / cancel job */}
+      <ConfirmSheet
         visible={cancelOpen}
-        title={inProgress ? "Cancel trip?" : "Cancel job?"}
+        tone="danger"
+        icon="close-circle-outline"
+        title={inProgress ? "Cancel Trip?" : "Cancel Job?"}
         message={
           inProgress
-            ? "The trip is already in progress. Please select a reason."
-            : "Please select a reason for cancelling."
+            ? "The trip is in progress. Select a reason."
+            : "Select a reason for cancelling."
         }
-        reasons={
+        options={
           inProgress ? CANCEL_REASONS_IN_PROGRESS : CANCEL_REASONS_PRE_TRIP
         }
-        cancelLabel={inProgress ? "Continue trip" : "Keep ride"}
-        confirmLabel={inProgress ? "Cancel trip" : "Cancel job"}
+        selected={cancelReason}
+        onSelect={setCancelReason}
+        cancelText={inProgress ? "Continue Trip" : "Keep Ride"}
         onCancel={() => setCancelOpen(false)}
-        onConfirm={(reason) => {
+        confirmText={inProgress ? "Cancel Trip" : "Cancel Job"}
+        onConfirm={() => {
           setCancelOpen(false);
-          void handleCancel(reason);
+          void handleCancel(cancelReason);
         }}
       />
 
-      <ReasonSheet
+      {/* Early drop-off guard */}
+      <ConfirmSheet
         visible={earlyEndOpen}
+        tone="danger"
         icon="warning-outline"
-        title="Not at drop-off yet"
+        title="Not at Drop-off Yet"
         message="End the trip here? Select a reason."
-        reasons={EARLY_END_REASONS}
-        cancelLabel="Keep driving"
-        confirmLabel="End here"
-        dismissible={false}
+        options={EARLY_END_REASONS}
+        selected={earlyEndReason}
+        onSelect={setEarlyEndReason}
+        cancelText="Keep Driving"
         onCancel={() => {
           setEarlyEndOpen(false);
           earlyEndResolve?.({ confirmed: false });
           setEarlyEndResolve(null);
         }}
-        onConfirm={(reason) => {
+        confirmText="End Here"
+        onConfirm={() => {
           setEarlyEndOpen(false);
-          earlyEndResolve?.({ confirmed: true, reason });
+          earlyEndResolve?.({ confirmed: true, reason: earlyEndReason });
           setEarlyEndResolve(null);
         }}
+        dismissible={false}
       />
 
       <Sheet visible={photoOpen} onClose={() => setPhotoOpen(false)}>
@@ -551,73 +643,58 @@ export function ActiveRidePanel({
               style={styles.photoLarge}
             />
           ) : null}
-          <AppText variant="title">{riderName(ride)}</AppText>
+          <AppText variant="title">{name}</AppText>
         </View>
       </Sheet>
     </View>
   );
 }
 
-function Tag({ text, muted = false }: { text: string; muted?: boolean }) {
-  return (
-    <AppText
-      variant="small"
-      color={muted ? "textMuted" : "secondary"}
-      numberOfLines={1}
-    >
-      {text}
-    </AppText>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { gap: spacing.md },
-  header: { gap: spacing.sm, paddingBottom: spacing.xs },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
-  more: { marginLeft: "auto" },
-  riderRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  body: { gap: spacing.md },
   avatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   avatarImg: { width: 52, height: 52 },
-  flex: { flex: 1, gap: 2 },
-  payout: { alignItems: "flex-end" },
-  card: {
-    marginTop: spacing.sm,
-    padding: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  tags: { alignItems: "flex-end", gap: 2 },
   tools: { flexDirection: "row", gap: spacing.md },
-  half: { flex: 1 },
-  actionZone: { marginTop: spacing.sm, gap: spacing.md },
+  tool: { flex: 1 },
+  foot: {
+    gap: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  secondary: { alignSelf: "center", minWidth: 200, marginTop: spacing.xs },
   stack: { gap: spacing.md },
   waitBox: {
-    alignItems: "center",
-    gap: spacing.xs,
-    padding: spacing.md,
-    borderRadius: radius.lg,
+    alignItems: "stretch",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
   },
-  notice: {
+  waitRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    justifyContent: "center",
+    gap: 10,
+  },
+  occupied: {
+    alignItems: "center",
+    gap: 4,
     padding: spacing.lg,
     borderRadius: radius.lg,
+    borderWidth: 1,
   },
   photoSheet: {
     alignItems: "center",
     gap: spacing.md,
     paddingVertical: spacing.md,
   },
-  photoLarge: { width: 220, height: 220, borderRadius: 110 },
+  photoLarge: { width: 160, height: 160, borderRadius: 80 },
 });
